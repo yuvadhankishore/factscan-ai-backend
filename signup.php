@@ -9,13 +9,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // 1. Capture and sanitize inputs
-$name             = trim($_POST['name'] ?? '');
-$email            = trim($_POST['email'] ?? '');
-$password         = $_POST['password'] ?? '';
-$confirm_password = $_POST['confirm_password'] ?? '';
+$name     = trim($_POST['name'] ?? '');
+$email    = trim($_POST['email'] ?? '');
+$password = $_POST['password'] ?? '';
 
 // 2. Input validation checks
-if (empty($name) || empty($email) || empty($password) || empty($confirm_password)) {
+if (empty($name) || empty($email) || empty($password)) {
     die("Validation Error: All fields are required.");
 }
 
@@ -25,10 +24,6 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
 if (strlen($password) < 6) {
     die("Validation Error: Password must be at least 6 characters long.");
-}
-
-if ($password !== $confirm_password) {
-    die("Validation Error: Password and Confirm Password do not match.");
 }
 
 try {
