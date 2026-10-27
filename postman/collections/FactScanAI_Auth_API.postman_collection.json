@@ -1,0 +1,724 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "FactScan AI - Backend Auth & Profile",
+    "description": "Comprehensive Postman test collection for FactScan AI backend authentication, profile, settings, and password management endpoints. Ready for direct localhost testing without browser sessions or cookies.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost/factscanai_backend/auth",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "test_email",
+      "value": "user@factscan.ai",
+      "type": "string"
+    },
+    {
+      "key": "test_password",
+      "value": "Password@123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Signup / Registration",
+      "item": [
+        {
+          "name": "Signup - Success (201 Created)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const randomNum = Math.floor(Math.random() * 100000);",
+                  "pm.collectionVariables.set('unique_email', `testuser_${randomNum}@factscan.ai`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns success true and user object', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.user).to.be.an('object');",
+                  "    pm.expect(res.user.id).to.be.a('number');",
+                  "});",
+                  "",
+                  "if (res.user && res.user.id) {",
+                  "    pm.collectionVariables.set('user_id', res.user.id.toString());",
+                  "    pm.collectionVariables.set('test_email', res.user.email);",
+                  "    console.log('Saved user_id:', res.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Alex Morgan\",\n  \"email\": \"{{unique_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"language\": \"English\",\n  \"accent_color\": \"blue\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/signup.php",
+              "host": ["{{base_url}}"],
+              "path": ["signup.php"]
+            },
+            "description": "Registers a new user account with unique email. Saves the newly created user_id to collection variables automatically."
+          }
+        },
+        {
+          "name": "Signup - Error: Missing Fields (400 Bad Request)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns error message', function () {",
+                  "    pm.expect(res.success).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"\",\n  \"email\": \"\",\n  \"password\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/signup.php",
+              "host": ["{{base_url}}"],
+              "path": ["signup.php"]
+            },
+            "description": "Tests rejection when required fields are empty."
+          }
+        },
+        {
+          "name": "Signup - Error: Short Password (400 Bad Request)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns password length error message', function () {",
+                  "    pm.expect(res.message).to.include('at least 8 characters');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Alex Morgan\",\n  \"email\": \"alex.short@factscan.ai\",\n  \"password\": \"12345\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/signup.php",
+              "host": ["{{base_url}}"],
+              "path": ["signup.php"]
+            },
+            "description": "Tests rejection when password is less than 8 characters."
+          }
+        },
+        {
+          "name": "Signup - Error: Duplicate Email (409 Conflict)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 409 Conflict', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns email already registered', function () {",
+                  "    pm.expect(res.message).to.eql('Email already registered');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Alex Morgan\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/signup.php",
+              "host": ["{{base_url}}"],
+              "path": ["signup.php"]
+            },
+            "description": "Tests rejection when registering with an already existing email address."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Login",
+      "item": [
+        {
+          "name": "Login - Success (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns success true, user and settings', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.user).to.be.an('object');",
+                  "    pm.expect(res.settings).to.be.an('object');",
+                  "});",
+                  "",
+                  "if (res.user && res.user.id) {",
+                  "    pm.collectionVariables.set('user_id', res.user.id.toString());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login.php",
+              "host": ["{{base_url}}"],
+              "path": ["login.php"]
+            },
+            "description": "Authenticates user and returns user info and settings. Updates user_id collection variable."
+          }
+        },
+        {
+          "name": "Login - Error: Invalid Password (401 Unauthorized)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns generic invalid credentials error', function () {",
+                  "    pm.expect(res.message).to.eql('Invalid email or password');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"WrongPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login.php",
+              "host": ["{{base_url}}"],
+              "path": ["login.php"]
+            },
+            "description": "Tests rejection when wrong password is supplied."
+          }
+        },
+        {
+          "name": "Login - Error: Missing Fields (400 Bad Request)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\",\n  \"password\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login.php",
+              "host": ["{{base_url}}"],
+              "path": ["login.php"]
+            },
+            "description": "Tests rejection when email or password is missing."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. User Profile",
+      "item": [
+        {
+          "name": "Get Profile - Header Auth (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns profile with matching user_id', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.profile.id.toString()).to.eql(pm.collectionVariables.get('user_id'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/profile.php",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"]
+            },
+            "description": "Fetches user profile using X-User-Id header without needing sessions/cookies."
+          }
+        },
+        {
+          "name": "Get Profile - Query Param Auth (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/profile.php?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Fetches user profile using URL query parameter user_id."
+          }
+        },
+        {
+          "name": "Get Profile - Error: Unauthorized (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/profile.php",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"]
+            },
+            "description": "Tests rejection when no session, header, or query param user_id is provided."
+          }
+        },
+        {
+          "name": "Get Profile - Error: User Not Found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 Not Found', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "999999"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/profile.php",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"]
+            },
+            "description": "Tests response when user ID does not exist in the database."
+          }
+        },
+        {
+          "name": "Update Profile - Success (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Profile updated successfully', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.profile.fullname).to.eql('Alex Morgan Updated');",
+                  "    pm.expect(res.profile.accent_color).to.eql('emerald');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Alex Morgan Updated\",\n  \"language\": \"Spanish\",\n  \"accent_color\": \"emerald\",\n  \"settings\": {\n    \"strict_verification\": false,\n    \"auto_save_history\": true,\n    \"notifications_enabled\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/profile.php",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"]
+            },
+            "description": "Updates full name, language, accent color, and verification settings."
+          }
+        },
+        {
+          "name": "Update Profile - Error: Duplicate Email Conflict (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 409 Conflict', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"daksh12@gmail.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/profile.php",
+              "host": ["{{base_url}}"],
+              "path": ["profile.php"]
+            },
+            "description": "Tests rejection when attempting to change email to an address already taken by another account."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Settings & Password",
+      "item": [
+        {
+          "name": "Get User Settings (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/settings.php",
+              "host": ["{{base_url}}"],
+              "path": ["settings.php"]
+            },
+            "description": "Fetches strict_verification, auto_save_history, and notifications_enabled settings."
+          }
+        },
+        {
+          "name": "Update User Settings (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"strict_verification\": true,\n  \"auto_save_history\": false,\n  \"notifications_enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/settings.php",
+              "host": ["{{base_url}}"],
+              "path": ["settings.php"]
+            },
+            "description": "Updates user verification and notification settings."
+          }
+        },
+        {
+          "name": "Change Password (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{test_password}}\",\n  \"new_password\": \"NewSecurePass@2026\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/change_password.php",
+              "host": ["{{base_url}}"],
+              "path": ["change_password.php"]
+            },
+            "description": "Verifies old password and updates to new password."
+          }
+        },
+        {
+          "name": "Logout (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/logout.php",
+              "host": ["{{base_url}}"],
+              "path": ["logout.php"]
+            },
+            "description": "Clears and destroys session data."
+          }
+        }
+      ]
+    }
+  ]
+}

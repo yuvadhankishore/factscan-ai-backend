@@ -1,9 +1,8 @@
-
 <?php
-header("Content-Type: application/json");
+header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Id");
 
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     http_response_code(204);
@@ -26,7 +25,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $data = json_decode(file_get_contents("php://input"), true);
-
 if (!is_array($data)) {
     $data = $_POST;
 }
@@ -45,9 +43,21 @@ if ($email === "" || $password === "") {
 
 try {
     $stmt = $conn->prepare(
-        "SELECT id, fullname, email, password
-         FROM users
-         WHERE email = :email
+        "SELECT 
+            u.id, 
+            u.fullname, 
+            u.email, 
+            u.password, 
+            u.created_at,
+            p.language, 
+            p.accent_color,
+            s.strict_verification, 
+            s.auto_save_history, 
+            s.notifications_enabled
+         FROM users u
+         LEFT JOIN user_profiles p ON u.id = p.user_id
+         LEFT JOIN user_settings s ON u.id = s.user_id
+         WHERE u.email = :email
          LIMIT 1"
     );
 
@@ -63,9 +73,39 @@ try {
         exit;
     }
 
-    session_regenerate_id(true);
+    $userId = (int)$user["id"];
 
-    $_SESSION["user_id"] = $user["id"];
+    // Ensure default profile exists if it was null
+    if ($user["language"] === null) {
+        $stmtInsProfile = $conn->prepare(
+            "INSERT INTO user_profiles (user_id, full_name, email, language, accent_color)
+             VALUES (:uid, :name, :email, 'English', 'blue')
+             ON DUPLICATE KEY UPDATE full_name = VALUES(full_name)"
+        );
+        $stmtInsProfile->execute([
+            ":uid" => $userId,
+            ":name" => $user["fullname"],
+            ":email" => $user["email"]
+        ]);
+        $user["language"] = "English";
+        $user["accent_color"] = "blue";
+    }
+
+    // Ensure default settings exist if null
+    if ($user["strict_verification"] === null) {
+        $stmtInsSettings = $conn->prepare(
+            "INSERT INTO user_settings (user_id, strict_verification, auto_save_history, notifications_enabled)
+             VALUES (:uid, 1, 1, 1)
+             ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)"
+        );
+        $stmtInsSettings->execute([":uid" => $userId]);
+        $user["strict_verification"] = 1;
+        $user["auto_save_history"] = 1;
+        $user["notifications_enabled"] = 1;
+    }
+
+    session_regenerate_id(true);
+    $_SESSION["user_id"] = $userId;
     $_SESSION["fullname"] = $user["fullname"];
     $_SESSION["email"] = $user["email"];
 
@@ -73,9 +113,17 @@ try {
         "success" => true,
         "message" => "Login successful",
         "user" => [
-            "id" => $user["id"],
+            "id" => $userId,
             "fullname" => $user["fullname"],
-            "email" => $user["email"]
+            "email" => $user["email"],
+            "language" => $user["language"] ?? "English",
+            "accent_color" => $user["accent_color"] ?? "blue",
+            "created_at" => $user["created_at"]
+        ],
+        "settings" => [
+            "strict_verification" => (bool)$user["strict_verification"],
+            "auto_save_history" => (bool)$user["auto_save_history"],
+            "notifications_enabled" => (bool)$user["notifications_enabled"]
         ]
     ]);
 
