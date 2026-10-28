@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
     "name": "FactScan AI - Full Platform REST API",
-    "description": "Production-grade Postman collection for FactScan AI covering Authentication, AI Fact-Checking (Gemini 1.5 Flash + Fallback), Verification History, Saved Bookmarks, Home Statistics, Trusted Sources Directory, and Feedback Reporting.",
+    "description": "Production-grade Postman collection for FactScan AI covering Authentication, AI Fact-Checking (Gemini 1.5 Flash + Fallback), Verification History, Saved Bookmarks, Home Statistics, AI Personal Analysis & Insights, Trusted Sources Directory, and Feedback Reporting.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -308,7 +308,7 @@
       ]
     },
     {
-      "name": "5. Home Dashboard & Stats",
+      "name": "5. Home Dashboard & AI Insights",
       "item": [
         {
           "name": "Get Home Stats",
@@ -319,6 +319,28 @@
               {"key": "X-User-Id", "value": "{{user_id}}"}
             ],
             "url": {"raw": "{{base_url}}/api/stats.php", "host": ["{{base_url}}"], "path": ["api", "stats.php"]}
+          }
+        },
+        {
+          "name": "Get AI Personal Analysis (Week)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/personal_analysis.php?period=week", "host": ["{{base_url}}"], "path": ["api", "personal_analysis.php"], "query": [{"key": "period", "value": "week"}]}
+          }
+        },
+        {
+          "name": "Get AI Personal Analysis (Month)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/personal_analysis.php?period=month", "host": ["{{base_url}}"], "path": ["api", "personal_analysis.php"], "query": [{"key": "period", "value": "month"}]}
           }
         }
       ]
