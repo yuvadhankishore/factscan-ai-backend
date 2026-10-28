@@ -145,3 +145,4 @@ def train(data_path, output_dir):
 if __name__ == "__main__":
     args = parse_args()
     train(args.data, args.output_dir)
+

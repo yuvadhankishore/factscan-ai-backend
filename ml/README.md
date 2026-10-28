@@ -98,3 +98,4 @@ The PHP backend includes [`config/ai_bridge.php`](../config/ai_bridge.php) which
 1. **Microservice**: If `serve.py` is running, PHP sends the claim via fast cURL.
 2. **CLI**: If the microservice is not running, PHP executes `python ml/predict.py` via `proc_open` pipes.
 3. **Graceful Fallback**: If Python is not yet installed or the model is not yet trained, the PHP backend automatically falls back to **Gemini 1.5 Flash** and the built-in rule analyzer so your mobile app **never crashes or hangs**.
+
