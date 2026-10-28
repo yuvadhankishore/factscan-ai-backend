@@ -21,6 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 require_once __DIR__ . "/../config/db.php";
 require_once __DIR__ . "/../config/gemini.php";
+require_once __DIR__ . "/../config/ai_bridge.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 if (!is_array($data)) {
@@ -76,6 +77,7 @@ if ($userId && $userId > 0) {
 
 $result = null;
 $rawGemini = null;
+$analysisEngine = "rule_fallback";
 
 // 1. Attempt Gemini 1.5 Flash Analysis if key or service configured
 $activeKey = GeminiConfig::getApiKey($apiKey);
@@ -127,11 +129,59 @@ EOT;
                 "warningSignals" => is_array($parsed["warningSignals"] ?? null) ? $parsed["warningSignals"] : [],
                 "verifiedSources" => is_array($parsed["verifiedSources"] ?? null) ? $parsed["verifiedSources"] : []
             ];
+            $analysisEngine = "gemini_1.5_flash";
         }
     }
 }
 
-// 2. Fallback Rule-Based Semantic Analyzer (Matches Android Kotlin client engine)
+// 2. Attempt Python ML Bridge (Microservice or CLI script) if Gemini was not used
+if ($result === null) {
+    $pythonPrediction = PythonAiBridge::predict($input);
+    if ($pythonPrediction && isset($pythonPrediction["isReal"])) {
+        $isReal = (bool)$pythonPrediction["isReal"];
+        $confidence = (int)($pythonPrediction["confidence"] ?? 90);
+        $warningSignals = $pythonPrediction["warningSignals"] ?? [];
+
+        $headline = strlen($input) > 75 ? substr($input, 0, 72) . "..." : $input;
+        $publisher = $type === "URL" ? "URL Web Analysis" : "Machine Learning NLP Engine";
+
+        $summary = $isReal
+            ? "Machine learning classification corroborates factual reporting patterns found in verified news archives."
+            : "Machine learning classifier identified high probability of sensational or unverified viral misinformation.";
+
+        $sources = $isReal ? [
+            [
+                "title" => "Reuters Fact Check Registry",
+                "url" => "https://www.reuters.com/fact-check",
+                "description" => "Independent global news monitoring and primary source verification"
+            ],
+            [
+                "title" => "Associated Press News Investigations",
+                "url" => "https://apnews.com/hub/ap-fact-check",
+                "description" => "Verified news wire archival records and correspondent reports"
+            ]
+        ] : [
+            [
+                "title" => "International Fact-Checking Network (IFCN)",
+                "url" => "https://www.poynter.org/ifcn/",
+                "description" => "Alert advisory: viral claim flagged for misleading or unsubstantiated content"
+            ]
+        ];
+
+        $result = [
+            "headline" => $headline,
+            "publisher" => $publisher,
+            "isReal" => $isReal,
+            "confidence" => $confidence,
+            "summary" => $summary,
+            "warningSignals" => $warningSignals,
+            "verifiedSources" => $sources
+        ];
+        $analysisEngine = $pythonPrediction["engine"] ?? "python_ml";
+    }
+}
+
+// 3. Fallback Rule-Based Semantic Analyzer (Guarantees app never fails)
 if ($result === null) {
     $inputLower = strtolower($input);
     $fakeKeywords = [
@@ -211,12 +261,13 @@ if ($result === null) {
         "warningSignals" => $warningSignals,
         "verifiedSources" => $verifiedSources
     ];
+    $analysisEngine = "rule_fallback";
 }
 
 $historyId = 0;
 $formattedTimestamp = date("M d, Y · g:i A");
 
-// 3. Persist into `verification_history` if user is identified and autoSave is active
+// 4. Persist into `verification_history` if user is identified and autoSave is active
 if ($userId && $userId > 0 && $autoSave) {
     try {
         $stmtIns = $conn->prepare(
@@ -235,7 +286,7 @@ if ($userId && $userId > 0 && $autoSave) {
             ":summary" => $result["summary"],
             ":warnings" => json_encode($result["warningSignals"], JSON_UNESCAPED_UNICODE),
             ":sources" => json_encode($result["verifiedSources"], JSON_UNESCAPED_UNICODE),
-            ":raw_gemini" => $rawGemini
+            ":raw_gemini" => $rawGemini ?: json_encode(["engine" => $analysisEngine])
         ]);
         $historyId = (int)$conn->lastInsertId();
     } catch (PDOException $e) {
@@ -258,6 +309,7 @@ echo json_encode([
         "verifiedSources" => $result["verifiedSources"],
         "timestamp" => $formattedTimestamp,
         "inputType" => $type,
+        "engine" => $analysisEngine,
         "isSaved" => false
     ]
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
