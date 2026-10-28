@@ -1,0 +1,360 @@
+{
+  "info": {
+    "_postman_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "name": "FactScan AI - Full Platform REST API",
+    "description": "Production-grade Postman collection for FactScan AI covering Authentication, AI Fact-Checking (Gemini 1.5 Flash + Fallback), Verification History, Saved Bookmarks, Home Statistics, Trusted Sources Directory, and Feedback Reporting.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost/factscanai_backend",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "verification_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "test_email",
+      "value": "user@factscan.ai",
+      "type": "string"
+    },
+    {
+      "key": "test_password",
+      "value": "Password@123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication & Profile",
+      "item": [
+        {
+          "name": "Signup - New User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rand = Math.floor(Math.random() * 90000) + 10000;",
+                  "pm.collectionVariables.set('test_email', `user_${rand}@factscan.ai`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.user && res.user.id) {",
+                  "    pm.collectionVariables.set('user_id', res.user.id.toString());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Alex Morgan\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"language\": \"English\",\n  \"accent_color\": \"blue\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/auth/signup.php", "host": ["{{base_url}}"], "path": ["auth", "signup.php"]}
+          }
+        },
+        {
+          "name": "Login - User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.user && res.user.id) {",
+                  "    pm.collectionVariables.set('user_id', res.user.id.toString());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/auth/login.php", "host": ["{{base_url}}"], "path": ["auth", "login.php"]}
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/auth/profile.php", "host": ["{{base_url}}"], "path": ["auth", "profile.php"]}
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Alex Morgan Updated\",\n  \"language\": \"English\",\n  \"accent_color\": \"emerald\",\n  \"settings\": {\n    \"strict_verification\": true,\n    \"auto_save_history\": true,\n    \"notifications_enabled\": true\n  }\n}"
+            },
+            "url": {"raw": "{{base_url}}/auth/profile.php", "host": ["{{base_url}}"], "path": ["auth", "profile.php"]}
+          }
+        },
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/auth/settings.php", "host": ["{{base_url}}"], "path": ["auth", "settings.php"]}
+          }
+        },
+        {
+          "name": "Update Settings & Custom Gemini Key",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"strict_verification\": true,\n  \"auto_save_history\": true,\n  \"notifications_enabled\": true,\n  \"custom_gemini_api_key\": \"\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/auth/settings.php", "host": ["{{base_url}}"], "path": ["auth", "settings.php"]}
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{test_password}}\",\n  \"new_password\": \"NewPassword@2026\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/auth/change_password.php", "host": ["{{base_url}}"], "path": ["auth", "change_password.php"]}
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": {"raw": "{{base_url}}/auth/logout.php", "host": ["{{base_url}}"], "path": ["auth", "logout.php"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. AI Fact-Checking Engine",
+      "item": [
+        {
+          "name": "Fact Check - Text Claim",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.result && res.result.id) {",
+                  "    pm.collectionVariables.set('verification_id', res.result.id.toString());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": \"NASA confirms asteroid collision predicted for next month causing 3 days of complete darkness\",\n  \"type\": \"TEXT_CLAIM\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/factcheck.php", "host": ["{{base_url}}"], "path": ["api", "factcheck.php"]}
+          }
+        },
+        {
+          "name": "Fact Check - URL Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": \"https://science.nasa.gov/earth/climate-change\",\n  \"type\": \"URL\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/factcheck.php", "host": ["{{base_url}}"], "path": ["api", "factcheck.php"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Verification History",
+      "item": [
+        {
+          "name": "Get History List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/history.php?page=1&limit=20", "host": ["{{base_url}}"], "path": ["api", "history.php"], "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}]}
+          }
+        },
+        {
+          "name": "Filter History by Verdict (Fake only)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/history.php?verdict=fake", "host": ["{{base_url}}"], "path": ["api", "history.php"], "query": [{"key": "verdict", "value": "fake"}]}
+          }
+        },
+        {
+          "name": "Delete History Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/history.php?id={{verification_id}}", "host": ["{{base_url}}"], "path": ["api", "history.php"], "query": [{"key": "id", "value": "{{verification_id}}"}]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Saved Articles (Bookmarks)",
+      "item": [
+        {
+          "name": "Save / Bookmark Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verification_id\": {{verification_id}}\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/saved.php", "host": ["{{base_url}}"], "path": ["api", "saved.php"]}
+          }
+        },
+        {
+          "name": "Get Saved Bookmarks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/saved.php", "host": ["{{base_url}}"], "path": ["api", "saved.php"]}
+          }
+        },
+        {
+          "name": "Remove Bookmark",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/saved.php?verification_id={{verification_id}}", "host": ["{{base_url}}"], "path": ["api", "saved.php"], "query": [{"key": "verification_id", "value": "{{verification_id}}"}]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Home Dashboard & Stats",
+      "item": [
+        {
+          "name": "Get Home Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "url": {"raw": "{{base_url}}/api/stats.php", "host": ["{{base_url}}"], "path": ["api", "stats.php"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Trusted Sources Directory",
+      "item": [
+        {
+          "name": "Get Trusted Fact-Checking Sources",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": {"raw": "{{base_url}}/api/trusted_sources.php", "host": ["{{base_url}}"], "path": ["api", "trusted_sources.php"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Analysis Feedback",
+      "item": [
+        {
+          "name": "Submit Claim Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-Id", "value": "{{user_id}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verification_id\": {{verification_id}},\n  \"feedback_type\": \"AGREE\",\n  \"comment\": \"Reliable verification analysis, corroborated with source links.\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/feedback.php", "host": ["{{base_url}}"], "path": ["api", "feedback.php"]}
+          }
+        }
+      ]
+    }
+  ]
+}
