@@ -2,14 +2,27 @@
 // Gemini AI Configuration and Service Provider
 
 class GeminiConfig {
-    // Default server-side API Key (can be set via environment variable or defined here)
     const DEFAULT_API_KEY = ""; 
-    const MODEL = "gemini-1.5-flash";
+    const MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
     const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     public static function getApiKey(?string $userApiKey = null): string {
         if (!empty($userApiKey) && trim($userApiKey) !== "") {
             return trim($userApiKey);
+        }
+
+        // Check incoming request headers
+        if (isset($_SERVER["HTTP_X_GEMINI_API_KEY"]) && trim($_SERVER["HTTP_X_GEMINI_API_KEY"]) !== "") {
+            return trim($_SERVER["HTTP_X_GEMINI_API_KEY"]);
+        }
+
+        if (function_exists('getallheaders')) {
+            $headers = getallheaders();
+            foreach ($headers as $k => $v) {
+                if (strcasecmp($k, 'X-Gemini-Api-Key') === 0 && !empty(trim($v))) {
+                    return trim($v);
+                }
+            }
         }
 
         $envKey = getenv("GEMINI_API_KEY");
@@ -26,8 +39,6 @@ class GeminiConfig {
             return null;
         }
 
-        $url = self::API_BASE_URL . self::MODEL . ":generateContent?key=" . urlencode($key);
-
         $payload = [
             "contents" => [
                 [
@@ -37,35 +48,48 @@ class GeminiConfig {
                 ]
             ],
             "generationConfig" => [
-                "temperature" => 0.2,
+                "temperature" => 0.1,
                 "topP" => 0.8,
-                "maxOutputTokens" => 1024
+                "maxOutputTokens" => 1500
             ]
         ];
+        $jsonPayload = json_encode($payload);
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Content-Type: application/json"
-        ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        // Try primary model first, fallback to alternate Gemini models if model name varies
+        foreach (self::MODELS as $modelName) {
+            $url = self::API_BASE_URL . $modelName . ":generateContent?key=" . urlencode($key);
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Content-Type: application/json"
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-        if ($error || $httpCode !== 200 || !$response) {
-            error_log("Gemini API call failed (HTTP $httpCode): " . ($error ?: $response));
-            return null;
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                $text = $data["candidates"][0]["content"]["parts"][0]["text"] ?? null;
+                if (!empty($text)) {
+                    return $text;
+                }
+            } else {
+                error_log("Gemini API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
+                // If invalid key or quota, trying next model might not help, but if 404 (model not found), try next
+                if ($httpCode === 400 || $httpCode === 403) {
+                    break;
+                }
+            }
         }
 
-        $data = json_decode($response, true);
-        $text = $data["candidates"][0]["content"]["parts"][0]["text"] ?? null;
-        return $text;
+        return null;
     }
 }
 ?>
