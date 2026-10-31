@@ -110,6 +110,33 @@ try {
         $historyList = [];
         foreach ($rows as $row) {
             $createdTime = strtotime($row["created_at"]);
+
+            $rawSignals = !empty($row["warning_signals"]) ? json_decode($row["warning_signals"], true) : [];
+            if (!is_array($rawSignals)) $rawSignals = [];
+
+            $rawSources = !empty($row["verified_sources"]) ? json_decode($row["verified_sources"], true) : [];
+            $normSources = [];
+            if (is_array($rawSources)) {
+                foreach ($rawSources as $s) {
+                    if (is_string($s)) {
+                        $normSources[] = $s;
+                    } elseif (is_array($s)) {
+                        $t = $s["title"] ?? $s["name"] ?? "";
+                        $u = $s["url"] ?? "";
+                        $d = $s["description"] ?? "";
+                        if ($t && $u) {
+                            $normSources[] = "$t ($u)";
+                        } elseif ($t) {
+                            $normSources[] = $t;
+                        } elseif ($u) {
+                            $normSources[] = $u;
+                        } elseif ($d) {
+                            $normSources[] = $d;
+                        }
+                    }
+                }
+            }
+
             $historyList[] = [
                 "id" => (int)$row["id"],
                 "headline" => $row["headline"],
@@ -117,11 +144,11 @@ try {
                 "isReal" => (bool)$row["is_real"],
                 "confidence" => (int)$row["confidence"],
                 "summary" => $row["summary"],
-                "timestamp" => date("M d, Y · g:i A", $createdTime),
+                "timestamp" => date("M d, Y • g:i A", $createdTime),
                 "inputType" => $row["input_type"],
                 "claimInput" => $row["claim_input"],
-                "warningSignals" => !empty($row["warning_signals"]) ? json_decode($row["warning_signals"], true) : [],
-                "verifiedSources" => !empty($row["verified_sources"]) ? json_decode($row["verified_sources"], true) : [],
+                "warningSignals" => $rawSignals,
+                "verifiedSources" => $normSources,
                 "isSaved" => (bool)$row["is_saved"]
             ];
         }

@@ -169,8 +169,16 @@ if (!is_array($data)) {
     $data = $_POST;
 }
 
-$input = trim($data["input"] ?? $data["claim"] ?? "");
-$type = strtoupper(trim($data["type"] ?? "TEXT_CLAIM"));
+$input = trim($data["input"] ?? $data["claim"] ?? $data["text"] ?? $data["claim_input"] ?? $data["content"] ?? $data["url"] ?? "");
+$type = strtoupper(trim($data["type"] ?? ""));
+
+if (empty($type)) {
+    if (isset($data["url"]) || preg_match('/^https?:\/\//i', $input)) {
+        $type = "URL";
+    } else {
+        $type = "TEXT_CLAIM";
+    }
+}
 if (!in_array($type, ["URL", "TEXT_CLAIM", "DOCUMENT_UPLOAD"])) {
     $type = "TEXT_CLAIM";
 }
@@ -413,46 +421,68 @@ if ($result === null) {
 $newVerificationId = null;
 if ($autoSave && $conn) {
     try {
-        $stmtInsert = $conn->prepare("
-            INSERT INTO verifications (
-                user_id, input_type, source_url, input_text,
-                verdict, confidence, headline, publisher,
-                summary, key_findings, warning_signals, verified_sources,
-                analysis_engine
-            ) VALUES (
-                :user_id, :input_type, :source_url, :input_text,
-                :verdict, :confidence, :headline, :publisher,
-                :summary, :key_findings, :warning_signals, :verified_sources,
-                :analysis_engine
-            )
-        ");
+        // Persist to verification_history (compatible with history, saved, and personal analysis APIs)
+        $inputText = ($type === "URL" && $parsedArticle) ? ($parsedArticle["title"] . "\n\n" . $parsedArticle["bodyText"]) : $input;
+        $signalsJson = json_encode($result["keyFindings"] ?: $result["warningSignals"], JSON_UNESCAPED_UNICODE);
+        $sourcesJson = json_encode($result["verifiedSources"] ?? [], JSON_UNESCAPED_UNICODE);
 
-        $sourceUrl = ($type === "URL") ? $input : null;
-        $inputText = ($type === "URL" && $parsedArticle) ? $parsedArticle["bodyText"] : $input;
+        if ($userId && $userId > 0) {
+            $stmtInsert = $conn->prepare("
+                INSERT INTO verification_history (
+                    user_id, input_type, claim_input, headline, publisher,
+                    is_real, confidence, summary, warning_signals, verified_sources,
+                    raw_gemini_response
+                ) VALUES (
+                    :user_id, :input_type, :claim_input, :headline, :publisher,
+                    :is_real, :confidence, :summary, :warning_signals, :verified_sources,
+                    :raw_gemini_response
+                )
+            ");
 
-        $stmtInsert->execute([
-            ":user_id" => ($userId && $userId > 0) ? $userId : null,
-            ":input_type" => $type,
-            ":source_url" => $sourceUrl,
-            ":input_text" => substr($inputText, 0, 5000),
-            ":verdict" => $result["verdict"],
-            ":confidence" => $result["confidence"],
-            ":headline" => $result["headline"],
-            ":publisher" => $result["publisher"],
-            ":summary" => $result["summary"],
-            ":key_findings" => json_encode($result["keyFindings"], JSON_UNESCAPED_UNICODE),
-            ":warning_signals" => json_encode($result["warningSignals"], JSON_UNESCAPED_UNICODE),
-            ":verified_sources" => json_encode($result["verifiedSources"], JSON_UNESCAPED_UNICODE),
-            ":analysis_engine" => $analysisEngine
-        ]);
+            $stmtInsert->execute([
+                ":user_id" => $userId,
+                ":input_type" => $type,
+                ":claim_input" => substr($inputText, 0, 5000),
+                ":headline" => substr($result["headline"], 0, 250),
+                ":publisher" => substr($result["publisher"], 0, 95),
+                ":is_real" => $result["isReal"] ? 1 : 0,
+                ":confidence" => $result["confidence"],
+                ":summary" => $result["summary"],
+                ":warning_signals" => $signalsJson,
+                ":verified_sources" => $sourcesJson,
+                ":raw_gemini_response" => $rawGemini ?: ($analysisEngine ?? "trained_ml")
+            ]);
 
-        $newVerificationId = (int)$conn->lastInsertId();
+            $newVerificationId = (int)$conn->lastInsertId();
+        }
     } catch (PDOException $e) {
         error_log("Failed to persist verification result: " . $e->getMessage());
     }
 }
 
 // 4. Return Output Matching Expected Client Schema
+$normVerifiedSources = [];
+if (!empty($result["verifiedSources"]) && is_array($result["verifiedSources"])) {
+    foreach ($result["verifiedSources"] as $vs) {
+        if (is_string($vs)) {
+            $normVerifiedSources[] = $vs;
+        } elseif (is_array($vs)) {
+            $t = $vs["title"] ?? $vs["name"] ?? "";
+            $u = $vs["url"] ?? "";
+            $d = $vs["description"] ?? "";
+            if ($t && $u) {
+                $normVerifiedSources[] = "$t ($u)";
+            } elseif ($t) {
+                $normVerifiedSources[] = $t;
+            } elseif ($u) {
+                $normVerifiedSources[] = $u;
+            } elseif ($d) {
+                $normVerifiedSources[] = $d;
+            }
+        }
+    }
+}
+
 http_response_code(200);
 echo json_encode([
     "success" => true,
@@ -464,12 +494,12 @@ echo json_encode([
         "verdict" => $result["verdict"],
         "isReal" => $result["isReal"],
         "confidence" => $result["confidence"],
-        "timestamp" => date("M d, Y · g:i A"),
+        "timestamp" => date("M d, Y • g:i A"),
         "isSaved" => false,
         "summary" => $result["summary"],
-        "keyFindings" => $result["keyFindings"],
-        "warningSignals" => $result["warningSignals"],
-        "verifiedSources" => $result["verifiedSources"]
+        "keyFindings" => is_array($result["keyFindings"]) ? array_values($result["keyFindings"]) : [],
+        "warningSignals" => is_array($result["warningSignals"]) ? array_values($result["warningSignals"]) : [],
+        "verifiedSources" => $normVerifiedSources
     ]
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 ?>

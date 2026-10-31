@@ -76,6 +76,33 @@ try {
         $savedList = [];
         foreach ($rows as $r) {
             $createdTime = strtotime($r["created_at"]);
+
+            $rawSignals = !empty($r["warning_signals"]) ? json_decode($r["warning_signals"], true) : [];
+            if (!is_array($rawSignals)) $rawSignals = [];
+
+            $rawSources = !empty($r["verified_sources"]) ? json_decode($r["verified_sources"], true) : [];
+            $normSources = [];
+            if (is_array($rawSources)) {
+                foreach ($rawSources as $s) {
+                    if (is_string($s)) {
+                        $normSources[] = $s;
+                    } elseif (is_array($s)) {
+                        $t = $s["title"] ?? $s["name"] ?? "";
+                        $u = $s["url"] ?? "";
+                        $d = $s["description"] ?? "";
+                        if ($t && $u) {
+                            $normSources[] = "$t ($u)";
+                        } elseif ($t) {
+                            $normSources[] = $t;
+                        } elseif ($u) {
+                            $normSources[] = $u;
+                        } elseif ($d) {
+                            $normSources[] = $d;
+                        }
+                    }
+                }
+            }
+
             $savedList[] = [
                 "bookmarkId" => (int)$r["bookmark_id"],
                 "id" => (int)$r["id"],
@@ -84,11 +111,11 @@ try {
                 "isReal" => (bool)$r["is_real"],
                 "confidence" => (int)$r["confidence"],
                 "summary" => $r["summary"],
-                "timestamp" => date("M d, Y · g:i A", $createdTime),
+                "timestamp" => date("M d, Y • g:i A", $createdTime),
                 "savedAt" => $r["saved_at"],
                 "inputType" => $r["input_type"],
-                "warningSignals" => !empty($r["warning_signals"]) ? json_decode($r["warning_signals"], true) : [],
-                "verifiedSources" => !empty($r["verified_sources"]) ? json_decode($r["verified_sources"], true) : [],
+                "warningSignals" => $rawSignals,
+                "verifiedSources" => $normSources,
                 "isSaved" => true
             ];
         }
