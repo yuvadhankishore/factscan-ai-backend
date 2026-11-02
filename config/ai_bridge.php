@@ -62,8 +62,13 @@ class PythonAiBridge {
             return null;
         }
 
-        // Windows commands can use python or py
-        $pythonCmd = "python";
+        // Detect python executable (prefer local venv if available)
+        $venvPython = realpath(__DIR__ . "/../ml/venv/Scripts/python.exe");
+        if ($venvPython && file_exists($venvPython)) {
+            $pythonCmd = "\"$venvPython\"";
+        } else {
+            $pythonCmd = "python";
+        }
         
         $descriptorspec = [
             0 => ["pipe", "r"], // stdin
