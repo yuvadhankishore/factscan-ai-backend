@@ -161,3 +161,4 @@ echo json_encode([
     "trending" => $trendingItems
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 ?>
+

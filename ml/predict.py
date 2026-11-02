@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+     0#!/usr/bin/env python3
 """
 FactScan AI - Machine Learning Prediction CLI
 Receives text claim via argument or stdin, outputs JSON.

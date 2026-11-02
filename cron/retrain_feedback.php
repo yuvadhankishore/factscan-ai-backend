@@ -59,3 +59,4 @@ echo json_encode([
     "timestamp" => date("c")
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
+
