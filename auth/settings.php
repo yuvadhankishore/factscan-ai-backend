@@ -78,7 +78,7 @@ try {
                 "strict_verification" => (bool)$settings["strict_verification"],
                 "auto_save_history" => (bool)$settings["auto_save_history"],
                 "notifications_enabled" => (bool)$settings["notifications_enabled"],
-                "has_custom_api_key" => !empty($settings["custom_gemini_api_key"]),
+                    "has_custom_api_key" => !empty($settings["custom_gemini_api_key"]),
                 "custom_gemini_api_key" => $settings["custom_gemini_api_key"] ?? ""
             ]
         ]);
