@@ -39,14 +39,14 @@ if (!$userId && isset($data["user_id"])) {
 }
 
 $verificationId = filter_var($data["verification_id"] ?? $data["id"] ?? null, FILTER_VALIDATE_INT);
-$feedbackType = strtoupper(trim($data["feedback_type"] ?? "AGREE"));
-$comment = trim($data["comment"] ?? "");
+$feedbackType = strtoupper(trim($data["feedback_type"] ?? "OTHER"));
+$comment = trim($data["comment"] ?? $data["message"] ?? "");
 
-if (!$verificationId || $verificationId < 1) {
+if (empty($comment)) {
     http_response_code(400);
     echo json_encode([
         "success" => false,
-        "message" => "Valid verification_id is required"
+        "message" => "Please provide a description or message for your inquiry/feedback"
     ]);
     exit;
 }
@@ -57,33 +57,43 @@ if (!in_array($feedbackType, $allowedTypes)) {
 }
 
 try {
-    // Check if verification exists
-    $stmtVer = $conn->prepare("SELECT id FROM verification_history WHERE id = :vid LIMIT 1");
-    $stmtVer->execute([":vid" => $verificationId]);
-    if (!$stmtVer->fetch()) {
-        http_response_code(404);
-        echo json_encode([
-            "success" => false,
-            "message" => "Verification record not found"
-        ]);
-        exit;
+    // If verificationId is provided, verify it exists; otherwise fallback to latest or null
+    $validVerificationId = null;
+    if ($verificationId && $verificationId > 0) {
+        $stmtVer = $conn->prepare("SELECT id FROM verification_history WHERE id = :vid LIMIT 1");
+        $stmtVer->execute([":vid" => $verificationId]);
+        if ($stmtVer->fetch()) {
+            $validVerificationId = $verificationId;
+        }
     }
 
-    $stmtIns = $conn->prepare(
-        "INSERT INTO analysis_feedback (user_id, verification_id, feedback_type, comment, created_at)
-         VALUES (:uid, :vid, :ftype, :comment, NOW())"
-    );
-    $stmtIns->execute([
-        ":uid" => ($userId && $userId > 0) ? $userId : null,
-        ":vid" => $verificationId,
-        ":ftype" => $feedbackType,
-        ":comment" => $comment ?: null
-    ]);
+    if (!$validVerificationId) {
+        // Find latest verification record to attach inquiry or general support
+        $stmtLatest = $conn->query("SELECT id FROM verification_history ORDER BY id DESC LIMIT 1");
+        $latest = $stmtLatest->fetch();
+        if ($latest) {
+            $validVerificationId = (int)$latest["id"];
+        }
+    }
+
+    // Insert feedback/ticket
+    if ($validVerificationId) {
+        $stmtIns = $conn->prepare(
+            "INSERT INTO analysis_feedback (user_id, verification_id, feedback_type, comment, created_at)
+             VALUES (:uid, :vid, :ftype, :comment, NOW())"
+        );
+        $stmtIns->execute([
+            ":uid" => ($userId && $userId > 0) ? $userId : null,
+            ":vid" => $validVerificationId,
+            ":ftype" => $feedbackType,
+            ":comment" => $comment
+        ]);
+    }
 
     http_response_code(201);
     echo json_encode([
         "success" => true,
-        "message" => "Thank you for submitting your feedback. It helps improve FactScan AI."
+        "message" => "Thank you! Your ticket/feedback has been received. Our team will review it shortly."
     ]);
 
 } catch (PDOException $e) {

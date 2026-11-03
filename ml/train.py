@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-FactScan AI - Machine Learning Model Trainer
-Trains a TF-IDF + Calibrated Classifier on fake news / fact-checking datasets.
-Compatible with WELFake, LIAR, ISOT, or custom CSV files.
+FactScan AI - Multi-Feature Machine Learning Model Trainer
+Trains a combined TF-IDF + Linguistic Feature Extraction Pipeline on news verification datasets.
 """
 
 import os
@@ -14,28 +13,35 @@ import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
+# Import custom engineered linguistic feature extractor
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from features import LinguisticFeatureExtractor
+
 DATA_DIR = os.path.join(BASE_DIR, "data")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train FactScan AI classification model")
+    parser = argparse.ArgumentParser(description="Train FactScan AI multi-feature model")
     parser.add_argument(
         "--data",
         type=str,
-        default=os.path.join(DATA_DIR, "sample_dataset.csv"),
+        default=os.path.join(DATA_DIR, "large_news_dataset.csv"),
         help="Path to training CSV dataset"
     )
     parser.add_argument(
         "--output_dir",
         type=str,
         default=MODEL_DIR,
-        help="Directory to save model.joblib and vectorizer.joblib"
+        help="Directory to save model pipeline"
     )
     return parser.parse_args()
 
@@ -74,8 +80,6 @@ def load_dataset(file_path):
         raise ValueError(f"Could not find a valid label column in dataset. Available columns: {list(df.columns)}")
 
     # Standardize label to 1 (Real) and 0 (Fake)
-    # If WELFake: 1 = real, 0 = fake
-    # If string labels: 'REAL'/'TRUE' -> 1, 'FAKE'/'FALSE' -> 0
     df = df.dropna(subset=[text_col, label_col])
     if df[label_col].dtype == object:
         df[label_col] = df[label_col].astype(str).str.strip().str.upper()
@@ -95,7 +99,6 @@ def load_dataset(file_path):
 def train(data_path, output_dir):
     X, y = load_dataset(data_path)
 
-    # For tiny sample dataset, adjust split
     test_size = 0.2 if len(X) >= 50 else 0.25
     if len(X) < 10:
         X_train, X_test, y_train, y_test = X, X, y, y
@@ -104,28 +107,37 @@ def train(data_path, output_dir):
             X, y, test_size=test_size, random_state=42, stratify=y
         )
 
-    print("[*] Vectorizing text using TF-IDF (ngrams 1-2)...")
-    vectorizer = TfidfVectorizer(
-        max_features=15000,
-        ngram_range=(1, 2),
-        sublinear_tf=True,
-        stop_words="english"
-    )
+    print("[*] Building Multi-Feature Pipeline:")
+    print("    - Branch 1: TF-IDF N-Gram Vectorizer (1-2 ngrams, sublinear scaling)")
+    print("    - Branch 2: Custom Linguistic Feature Extractor (Sensationalism, Urgency, Attribution, Punctuation)")
 
-    X_train_vec = vectorizer.fit_transform(X_train)
-    X_test_vec = vectorizer.transform(X_test)
+    feature_union = FeatureUnion([
+        ('tfidf', TfidfVectorizer(
+            max_features=25000,
+            ngram_range=(1, 2),
+            sublinear_tf=True,
+            stop_words="english"
+        )),
+        ('linguistic', LinguisticFeatureExtractor())
+    ])
 
-    print("[*] Training Logistic Regression classifier with balanced class weights...")
-    model = LogisticRegression(
-        C=1.5,
-        max_iter=1000,
+    classifier = LogisticRegression(
+        C=2.0,
+        max_iter=1500,
         class_weight="balanced",
         random_state=42
     )
-    model.fit(X_train_vec, y_train)
+
+    pipeline = Pipeline([
+        ('features', feature_union),
+        ('clf', classifier)
+    ])
+
+    print("[*] Training end-to-end model pipeline...")
+    pipeline.fit(X_train, y_train)
 
     # Evaluation
-    preds = model.predict(X_test_vec)
+    preds = pipeline.predict(X_test)
     acc = accuracy_score(y_test, preds)
     print(f"\n[+] Training Complete!")
     print(f"[+] Test Accuracy: {acc * 100:.2f}%")
@@ -133,16 +145,10 @@ def train(data_path, output_dir):
     print(classification_report(y_test, preds, target_names=["Fake (0)", "Real (1)"], zero_division=0))
 
     # Save artifacts
-    model_path = os.path.join(output_dir, "model.joblib")
-    vectorizer_path = os.path.join(output_dir, "vectorizer.joblib")
-
-    joblib.dump(model, model_path)
-    joblib.dump(vectorizer, vectorizer_path)
-
-    print(f"[+] Saved model to: {model_path}")
-    print(f"[+] Saved vectorizer to: {vectorizer_path}")
+    pipeline_path = os.path.join(output_dir, "model.joblib")
+    joblib.dump(pipeline, pipeline_path)
+    print(f"[+] Saved trained multi-feature pipeline to: {pipeline_path}")
 
 if __name__ == "__main__":
     args = parse_args()
     train(args.data, args.output_dir)
-

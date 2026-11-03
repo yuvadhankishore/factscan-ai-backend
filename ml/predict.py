@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-FactScan AI - Machine Learning Prediction CLI
-Receives text claim via argument or stdin, outputs JSON.
-Can be executed directly by PHP backend or run standalone.
+FactScan AI - Multi-Feature Machine Learning Prediction CLI
+Receives text claim via argument or stdin, extracts linguistic features,
+and outputs comprehensive verification JSON.
 """
 
 import os
@@ -11,28 +11,34 @@ import json
 import argparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from features import LinguisticFeatureExtractor
+
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
-VECTORIZER_PATH = os.path.join(MODEL_DIR, "vectorizer.joblib")
 
-def extract_rule_signals(text):
+def extract_rule_signals(text, feats):
     text_lower = text.lower()
-    warning_signals = []
+    signals = []
 
-    sensational_words = ["miracle", "shocking", "urgent", "must watch", "banned from tv", "secret leak", "illuminati"]
-    for w in sensational_words:
-        if w in text_lower:
-            warning_signals.append(f"Sensational trigger phrase detected: '{w}'")
+    if feats.get("sensationalismIndex", 0) >= 30:
+        signals.append("High sensationalism index detected in vocabulary")
 
-    unverified_markers = ["forwarded", "share before deleted", "don't ignore", "free money", "cure cancer overnight"]
-    for w in unverified_markers:
-        if w in text_lower:
-            warning_signals.append("Urgent social sharing request without traceable primary attribution")
+    if feats.get("urgencyPanicLevel", 0) >= 25:
+        signals.append("Urgent social forwarding call-to-action detected")
+
+    if feats.get("excessivePunctuation", 0) >= 20:
+        signals.append("Elevated punctuation frequency typical of viral online alerts")
+
+    if feats.get("institutionalAttribution", 0) >= 30:
+        signals.append("Verified institutional and journalistic attribution terms identified")
 
     if len(text.split()) < 4:
-        warning_signals.append("Very brief input with limited contextual facts")
+        signals.append("Very brief input with limited contextual facts")
 
-    return warning_signals
+    return signals
 
 def predict(text):
     if not text or not text.strip():
@@ -44,28 +50,40 @@ def predict(text):
     cleaned_text = text.strip()
     headline = cleaned_text[:75] + ("..." if len(cleaned_text) > 75 else "")
 
-    # Check if trained model and vectorizer exist
-    has_model = os.path.exists(MODEL_PATH) and os.path.exists(VECTORIZER_PATH)
+    feats = LinguisticFeatureExtractor.get_feature_dict(cleaned_text)
+    warning_signals = extract_rule_signals(cleaned_text, feats)
+
+    # Check if trained multi-feature pipeline exists
+    has_model = os.path.exists(MODEL_PATH)
 
     if has_model:
         try:
             import joblib
-            model = joblib.load(MODEL_PATH)
-            vectorizer = joblib.load(VECTORIZER_PATH)
+            pipeline = joblib.load(MODEL_PATH)
 
-            X_vec = vectorizer.transform([cleaned_text])
-            proba = model.predict_proba(X_vec)[0]  # [prob_fake (0), prob_real (1)]
+            # Predict probability via pipeline
+            proba = pipeline.predict_proba([cleaned_text])[0]
             prob_fake = float(proba[0])
             prob_real = float(proba[1])
 
             is_real = prob_real >= 0.50
             confidence = int(round(max(prob_real, prob_fake) * 100))
 
-            warning_signals = extract_rule_signals(cleaned_text)
             if not is_real and not warning_signals:
                 warning_signals.append("Linguistic patterns align with unsubstantiated online claims")
-            elif is_real:
+            elif is_real and not warning_signals:
                 warning_signals.append("Phrasing matches journalistic factual reporting registries")
+
+            # Top feature indicators for user explainability
+            feature_indicators = []
+            if feats["sensationalismIndex"] > 25:
+                feature_indicators.append(f"Sensationalism score: {feats['sensationalismIndex']}% (Elevated)")
+            if feats["urgencyPanicLevel"] > 20:
+                feature_indicators.append(f"Viral urgency level: {feats['urgencyPanicLevel']}% (High)")
+            if feats["institutionalAttribution"] > 25:
+                feature_indicators.append(f"Institutional credibility: {feats['institutionalAttribution']}% (Corroborated)")
+            if feats["factualNumericalDensity"] > 15:
+                feature_indicators.append(f"Numerical evidence density: {feats['factualNumericalDensity']}%")
 
             return {
                 "success": True,
@@ -75,50 +93,49 @@ def predict(text):
                     "real": round(prob_real, 4),
                     "fake": round(prob_fake, 4)
                 },
+                "features": feats,
+                "topFeatureIndicators": feature_indicators,
                 "warningSignals": warning_signals,
                 "headline": headline,
-                "engine": "scikit-learn_logistic_regression"
+                "engine": "scikit-learn_multi_feature_pipeline"
             }
         except Exception as e:
-            # Fall back to heuristic if error loading model
+            # Fallback to rule engine if model load fails
             pass
 
-    # Heuristic fallback if model not trained yet
-    signals = extract_rule_signals(cleaned_text)
-    is_fake = len(signals) > 0
-    confidence = 90 if is_fake else 88
-
+    # Heuristic Fallback
+    is_real = feats["institutionalAttribution"] >= feats["sensationalismIndex"]
     return {
         "success": True,
-        "isReal": not is_fake,
-        "confidence": confidence,
+        "isReal": is_real,
+        "confidence": 75,
         "probabilities": {
-            "real": 0.10 if is_fake else 0.88,
-            "fake": 0.90 if is_fake else 0.12
+            "real": 0.75 if is_real else 0.25,
+            "fake": 0.25 if is_real else 0.75
         },
-        "warningSignals": signals if signals else ["No overt disinformation flags detected in text sample"],
+        "features": feats,
+        "warningSignals": warning_signals or ["Evaluated via linguistic feature rule analysis"],
         "headline": headline,
-        "engine": "heuristic_fallback"
+        "engine": "heuristic_feature_fallback"
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="FactScan AI ML Predictor")
-    parser.add_argument("--text", type=str, default=None, help="Claim text to analyze")
+    parser = argparse.ArgumentParser(description="Predict news claim authenticity using multi-feature AI")
+    parser.add_argument("--text", type=str, default=None, help="Text claim to evaluate")
     args = parser.parse_args()
 
     input_text = args.text
     if not input_text:
-        # Read from stdin
+        # Read from stdin if piped
         if not sys.stdin.isatty():
             input_text = sys.stdin.read()
 
     if not input_text:
-        print(json.dumps({"success": False, "message": "No text provided via --text or stdin"}))
+        print(json.dumps({"success": False, "message": "No input text provided"}))
         sys.exit(1)
 
     result = predict(input_text)
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps(result))
 
 if __name__ == "__main__":
     main()
-
