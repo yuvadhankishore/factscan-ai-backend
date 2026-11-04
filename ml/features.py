@@ -11,25 +11,38 @@ SENSATIONAL_WORDS = {
 URGENCY_PHRASES = [
     "forward this", "share before deleted", "warn everyone", "urgent alert",
     "immediate action", "don't ignore", "hurry up", "emergency warning",
-    "forward to", "spread this", "alert your family"
+    "forward to", "spread this", "alert your family", "share with 50", "share with 20"
 ]
 
 ATTRIBUTION_TERMS = {
     "according", "announced", "statement", "reported", "published", "study",
     "researchers", "ministry", "spokesperson", "release", "reuters", "confirmed",
     "journal", "scientists", "official", "documented", "validated", "peer-reviewed",
-    "directorate", "department", "authorities", "organization"
+    "directorate", "department", "authorities", "organization", "observatory",
+    "council", "delegates", "committee", "commissioners", "investigators"
 }
 
 VAGUE_SPECULATION = [
     "sources say", "people claim", "rumored", "alleged", "believed to be",
-    "someone said", "they claim", "word is", "it is said"
+    "someone said", "they claim", "word is", "it is said", "unnamed sources"
+]
+
+FEAR_MONGERING_TERMS = {
+    "deadly", "lethal", "catastrophic", "toxic", "poison", "fatal",
+    "apocalypse", "wipe out", "doom", "destroy", "perish", "devastating",
+    "extinction", "biohazard", "emergency shutdown"
+}
+
+DEFINITIVE_BIAS_PHRASES = [
+    "100 percent", "guaranteed", "proven fact", "undeniable", "permanent cure",
+    "miracle remedy", "secret revealed", "totally destroys", "miracle juice",
+    "doctors don't want you to know", "cure all"
 ]
 
 class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
     """
-    Extracts high-signal stylistic, linguistic, and credibility features
-    from raw news claims and articles.
+    Extracts 12 high-signal stylistic, linguistic, and credibility features
+    from raw news claims and articles for advanced NLP classification.
     """
     def __init__(self):
         pass
@@ -72,7 +85,7 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         numbers = re.findall(r'\b\d+(?:\.\d+)?%?\b', text_str)
         num_density = min(1.0, len(numbers) / total_words)
 
-        # 7. Lexical Diversity
+        # 7. Lexical Diversity (Type-Token Ratio)
         lex_div = len(set(words)) / total_words
 
         # 8. Average Word Length (Journalistic text has higher avg word length)
@@ -82,6 +95,14 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         # 9. Direct Quotes Presence
         quote_count = len(re.findall(r'["\u201c\u201d\u2018\u2019]', text_str))
         quote_score = min(1.0, quote_count / 4.0)
+
+        # 10. Fear-Mongering Score
+        fear_count = sum(1 for w in words if w in FEAR_MONGERING_TERMS)
+        fear_score = min(1.0, (fear_count / total_words) * 8)
+
+        # 11. Absolute Definitive Certainty Bias
+        bias_count = sum(1 for phrase in DEFINITIVE_BIAS_PHRASES if phrase in text_lower)
+        bias_score = min(1.0, bias_count * 0.35)
 
         return [
             sensational_score,
@@ -93,7 +114,9 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
             num_density,
             lex_div,
             norm_len,
-            quote_score
+            quote_score,
+            fear_score,
+            bias_score
         ]
 
     def transform(self, X):
@@ -111,5 +134,7 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
             "vagueSpeculation": int(round(feats[3] * 100)),
             "excessivePunctuation": int(round(feats[5] * 100)),
             "factualNumericalDensity": int(round(feats[6] * 100)),
-            "lexicalDiversity": int(round(feats[7] * 100))
+            "lexicalDiversity": int(round(feats[7] * 100)),
+            "fearMongeringLevel": int(round(feats[10] * 100)),
+            "definitiveCertaintyBias": int(round(feats[11] * 100))
         }
