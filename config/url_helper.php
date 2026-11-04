@@ -127,3 +127,4 @@ function fetchAndParseArticleUrl(string $url): array {
         "metaDescription" => $metaDesc
     ];
 }
+
