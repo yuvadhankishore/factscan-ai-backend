@@ -91,5 +91,91 @@ class GeminiConfig {
 
         return null;
     }
+
+    /**
+     * Multi-Turn Conversational Chat with System Persona (ChatGPT / Gemini style)
+     *
+     * @param array $messages Array of ['role' => 'user'|'model'|'assistant', 'content' => '...']
+     * @param string|null $systemInstruction Custom instructions defining the AI's persona and knowledge
+     * @param string|null $apiKey Optional explicit API key
+     * @return string|null Generated response text
+     */
+    public static function chat(array $messages, ?string $systemInstruction = null, ?string $apiKey = null): ?string {
+        $key = self::getApiKey($apiKey);
+        if (empty($key) || empty($messages)) {
+            return null;
+        }
+
+        $formattedContents = [];
+        foreach ($messages as $m) {
+            $role = (isset($m['role']) && ($m['role'] === 'model' || $m['role'] === 'assistant')) ? 'model' : 'user';
+            $text = trim($m['content'] ?? $m['text'] ?? '');
+            if ($text !== '') {
+                $formattedContents[] = [
+                    "role" => $role,
+                    "parts" => [
+                        ["text" => $text]
+                    ]
+                ];
+            }
+        }
+
+        if (empty($formattedContents)) {
+            return null;
+        }
+
+        $payload = [
+            "contents" => $formattedContents,
+            "generationConfig" => [
+                "temperature" => 0.7,
+                "topP" => 0.95,
+                "maxOutputTokens" => 2048
+            ]
+        ];
+
+        if (!empty($systemInstruction)) {
+            $payload["systemInstruction"] = [
+                "parts" => [
+                    ["text" => $systemInstruction]
+                ]
+            ];
+        }
+
+        $jsonPayload = json_encode($payload);
+
+        foreach (self::MODELS as $modelName) {
+            $url = self::API_BASE_URL . $modelName . ":generateContent?key=" . urlencode($key);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Content-Type: application/json"
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                $text = $data["candidates"][0]["content"]["parts"][0]["text"] ?? null;
+                if (!empty($text)) {
+                    return $text;
+                }
+            } else {
+                error_log("Gemini Chat API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
+                if ($httpCode === 400 || $httpCode === 403) {
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
 }
 ?>
