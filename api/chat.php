@@ -26,6 +26,7 @@ if ($requestMethod !== "POST") {
 require_once __DIR__ . "/../config/db.php";
 require_once __DIR__ . "/../config/gemini.php";
 require_once __DIR__ . "/../config/ai_bridge.php";
+require_once __DIR__ . "/../config/url_helper.php";
 require_once __DIR__ . "/../ml/factcheck_engine.php";
 
 $rawInput = file_get_contents("php://input");
@@ -45,6 +46,12 @@ $history = $input["history"] ?? [];
 if (!is_array($history)) {
     $history = [];
 }
+
+$context = $input["context"] ?? [];
+if (!is_array($context)) {
+    $context = [];
+}
+$articleMeta = null;
 
 // 1. Resolve User and Gemini API Key
 $userId = null;
@@ -95,24 +102,60 @@ if (empty($apiKey) && $conn) {
     }
 }
 
-// 2. Hybrid CoPilot: Evaluate with Python ML Ensemble & Rule Engine
+// 2. Hybrid CoPilot: Context Grounding (URL & Text Processing)
+$contextUrl = trim($context["url"] ?? "");
+if (empty($contextUrl) && preg_match('/https?:\/\/[^\s]+/i', $userMessage, $urlMatches)) {
+    $contextUrl = $urlMatches[0];
+}
+
+$parsedArticle = null;
+if (!empty($contextUrl)) {
+    $parsedArticle = fetchAndParseArticleUrl($contextUrl);
+    if ($parsedArticle["success"]) {
+        $articleMeta = [
+            "title" => $parsedArticle["title"],
+            "publisher" => $parsedArticle["publisher"],
+            "domain" => $parsedArticle["domain"],
+            "url" => $parsedArticle["url"]
+        ];
+    }
+}
+
+$contextSnippet = trim($context["text"] ?? $context["content"] ?? "");
+
+// Evaluate with Python ML Ensemble & Rule Engine
 $mlAnalysis = null;
 $claimEval = null;
 
-$isGreetingOrQuestion = preg_match('/^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening)|howdy|who are you|what can you do|how are you|tell me about yourself)\b/i', $userMessage);
-
-if (!$isGreetingOrQuestion) {
+if (!empty($parsedArticle) && $parsedArticle["success"]) {
+    $evalText = $parsedArticle["title"] . " " . substr($parsedArticle["bodyText"], 0, 1500);
     try {
-        $claimEval = FactCheckEngine::evaluate($userMessage, "TEXT_CLAIM");
+        $claimEval = FactCheckEngine::evaluate($evalText, "URL", $parsedArticle["url"]);
     } catch (Exception $e) {
         $claimEval = null;
+    }
+} elseif (!empty($contextSnippet)) {
+    try {
+        $claimEval = FactCheckEngine::evaluate(substr($contextSnippet, 0, 1500), "DOCUMENT_UPLOAD");
+    } catch (Exception $e) {
+        $claimEval = null;
+    }
+} else {
+    $isGreetingOrQuestion = preg_match('/^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening)|howdy|who are you|what can you do|how are you|tell me about yourself)\b/i', $userMessage);
+
+    if (!$isGreetingOrQuestion) {
+        try {
+            $claimEval = FactCheckEngine::evaluate($userMessage, "TEXT_CLAIM");
+        } catch (Exception $e) {
+            $claimEval = null;
+        }
     }
 }
 
 $isLikelyClaim = false;
 if ($claimEval && isset($claimEval["confidence"])) {
     $wordCount = str_word_count($userMessage);
-    if ($wordCount >= 4 || !empty($claimEval["warningSignals"])) {
+    if ($wordCount >= 4 || !empty($claimEval["warningSignals"]) || !empty($parsedArticle) || !empty($contextSnippet)) {
         $isLikelyClaim = true;
     }
 }
@@ -121,10 +164,24 @@ if ($claimEval && isset($claimEval["confidence"])) {
 $systemInstruction = "You are FactScan AI Assistant, an advanced, highly intelligent conversational AI co-pilot created to assist users with open-ended dialogue, news analysis, claim verification, research, writing, and explanations. You speak warmly, clearly, objectively, and thoughtfully, similar to ChatGPT and Gemini.\n\n"
     . "Key Capabilities & Personality:\n"
     . "1. Conversational & Empathetic: When users say hello, ask for advice, or chat casually, respond naturally and helpfully.\n"
-    . "2. Analytical & Factual: When users share breaking news, viral claims, health tips, or political statements, provide an objective, fact-based breakdown.\n"
-    . "3. Deep Contextual Reasoning: Clarify why something is true, false, or unproven with traceable scientific, institutional, or journalistic evidence.\n"
-    . "4. Actionable Advice: Suggest how users can verify such claims themselves (e.g. checking official gazettes, peer-reviewed registries, or official agency portals).\n"
+    . "2. URL & Article Expert: When a web article URL is provided, analyze the article deeply, summarize key claims, examine the publishing domain credibility, and highlight verified facts vs red flags.\n"
+    . "3. Document & Text Processor: When user pastes text, uploaded documents, or OCR-scanned articles, dissect the assertions, explain the underlying facts, and provide clear bullet-point takeaways.\n"
+    . "4. Deep Contextual Reasoning: Clarify why something is true, false, or unproven with traceable scientific, institutional, or journalistic evidence.\n"
     . "5. Format responses nicely using Markdown (bullet points, bold highlights, concise paragraphs) for readability on mobile screens.";
+
+// Inject Grounding Context for URL or Document
+if (!empty($parsedArticle) && $parsedArticle["success"]) {
+    $systemInstruction .= "\n\n[Active Webpage Grounding Context]:\n"
+        . "Article Title: {$parsedArticle['title']}\n"
+        . "Publisher / Domain: {$parsedArticle['publisher']} ({$parsedArticle['domain']})\n"
+        . "Article URL: {$parsedArticle['url']}\n"
+        . "Article Content:\n{$parsedArticle['bodyText']}\n"
+        . "Answer the user's questions about this article accurately, examine its claims, and summarize or explain its key points.";
+} elseif (!empty($contextSnippet)) {
+    $systemInstruction .= "\n\n[Active Document / Text Processing Grounding Context]:\n"
+        . "Extracted Document Content:\n" . substr($contextSnippet, 0, 3500) . "\n"
+        . "Answer the user's questions about this document or text, fact-check its assertions, and provide clear explanations.";
+}
 
 if ($isLikelyClaim && $claimEval) {
     $verdictStr = !empty($claimEval["isReal"]) ? "REAL / CREDIBLE" : "UNVERIFIED / POTENTIALLY FAKE";
@@ -205,6 +262,7 @@ $response = [
     "confidence" => $claimEval["confidence"] ?? null,
     "warningSignals" => $claimEval["warningSignals"] ?? [],
     "engine" => !empty($activeKey) ? "gemini_copilot_hybrid" : "factscan_ai_copilot",
+    "articleMeta" => $articleMeta,
     "timestamp" => time()
 ];
 
