@@ -5,38 +5,56 @@ from sklearn.base import BaseEstimator, TransformerMixin
 SENSATIONAL_WORDS = {
     "shocking", "miracle", "mind-blowing", "exposed", "secret", "unbelievable",
     "viral", "banned", "truth about", "breaking alert", "unreal", "magic",
-    "cure overnight", "hidden truth", "insane", "you won't believe", "conspiracy"
+    "cure overnight", "hidden truth", "insane", "you won't believe", "conspiracy",
+    "share before deleted", "bombshell", "forbidden", "illuminati", "coverup"
 }
 
 URGENCY_PHRASES = [
     "forward this", "share before deleted", "warn everyone", "urgent alert",
     "immediate action", "don't ignore", "hurry up", "emergency warning",
-    "forward to", "spread this", "alert your family", "share with 50", "share with 20"
+    "forward to", "spread this", "alert your family", "share with 50", "share with 20",
+    "forward immediately", "share immediately", "tell everyone you know"
 ]
 
 ATTRIBUTION_TERMS = {
-    "according", "announced", "statement", "reported", "published", "study",
-    "researchers", "ministry", "spokesperson", "release", "reuters", "confirmed",
-    "journal", "scientists", "official", "documented", "validated", "peer-reviewed",
-    "directorate", "department", "authorities", "organization", "observatory",
-    "council", "delegates", "committee", "commissioners", "investigators"
+    "according", "announced", "announces", "announcing", "statement", "reported",
+    "reports", "reporting", "published", "publishes", "study", "researchers",
+    "ministry", "spokesperson", "spokesman", "spokeswoman", "release", "reuters",
+    "confirmed", "confirms", "confirming", "journal", "scientists", "official",
+    "officials", "documented", "validated", "peer-reviewed", "directorate",
+    "department", "authorities", "organization", "observatory", "council",
+    "delegates", "committee", "commissioners", "investigators", "who", "nasa",
+    "isro", "cdc", "fda", "rbi", "pib", "un", "unesco", "unicef", "interpol",
+    "oxford", "cambridge", "harvard", "mit", "nature", "science", "lancet",
+    "afp", "bbc", "bloomberg", "thehindu", "pti", "ani", "ndtv", "reuters",
+    "court", "gazette", "declared", "declares", "findings", "discover", "discovers",
+    "satellite", "launch", "launches", "launched", "mission", "telescope"
 }
+
+ATTRIBUTION_PHRASES = [
+    "world health organization", "associated press", "supreme court", "high court",
+    "united nations", "white house", "reserve bank", "press release", "press conference",
+    "ministry of health", "defense ministry", "foreign ministry", "clinical trial",
+    "peer-reviewed study", "scientific study", "official gazette", "food and drug administration",
+    "centers for disease control", "james webb", "space telescope"
+]
 
 VAGUE_SPECULATION = [
     "sources say", "people claim", "rumored", "alleged", "believed to be",
-    "someone said", "they claim", "word is", "it is said", "unnamed sources"
+    "someone said", "they claim", "word is", "it is said", "unnamed sources",
+    "anonymous insider", "viral video claims", "someone on social media"
 ]
 
 FEAR_MONGERING_TERMS = {
     "deadly", "lethal", "catastrophic", "toxic", "poison", "fatal",
     "apocalypse", "wipe out", "doom", "destroy", "perish", "devastating",
-    "extinction", "biohazard", "emergency shutdown"
+    "extinction", "biohazard", "emergency shutdown", "bioweapon"
 }
 
 DEFINITIVE_BIAS_PHRASES = [
     "100 percent", "guaranteed", "proven fact", "undeniable", "permanent cure",
     "miracle remedy", "secret revealed", "totally destroys", "miracle juice",
-    "doctors don't want you to know", "cure all"
+    "doctors don't want you to know", "cure all", "100% cure"
 ]
 
 class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
@@ -66,6 +84,7 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
 
         # 2. Institutional Attribution Score
         attribution_count = sum(1 for w in words if w in ATTRIBUTION_TERMS)
+        attribution_count += sum(2 for phrase in ATTRIBUTION_PHRASES if phrase in text_lower)
         attribution_score = min(1.0, (attribution_count / total_words) * 8)
 
         # 3. Vague Speculation Score
