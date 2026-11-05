@@ -20,3 +20,4 @@ if (!defined("FACTSCAN_OPENAI_API_KEY")) {
     define("FACTSCAN_OPENAI_API_KEY", $oKey);
 }
 ?>
+
