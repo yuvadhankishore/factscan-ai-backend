@@ -1,5 +1,6 @@
 <?php
 // Gemini AI Configuration and Service Provider
+require_once __DIR__ . "/ai_keys.php";
 
 class GeminiConfig {
     const DEFAULT_API_KEY = ""; 
@@ -30,7 +31,7 @@ class GeminiConfig {
             return trim($envKey);
         }
 
-        return self::DEFAULT_API_KEY;
+        return defined("FACTSCAN_GEMINI_API_KEY") && FACTSCAN_GEMINI_API_KEY !== "" ? FACTSCAN_GEMINI_API_KEY : self::DEFAULT_API_KEY;
     }
 
     public static function generateContent(string $prompt, ?string $apiKey = null): ?string {

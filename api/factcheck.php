@@ -22,6 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 require_once __DIR__ . "/../config/db.php";
 require_once __DIR__ . "/../config/gemini.php";
 require_once __DIR__ . "/../config/ai_bridge.php";
+require_once __DIR__ . "/../config/ai_agent_orchestrator.php";
 require_once __DIR__ . "/../ml/factcheck_engine.php";
 
 /**
@@ -244,6 +245,34 @@ if ($userId && $userId > 0 && $conn) {
     }
 }
 
+// Extract ChatGPT / OpenAI API Key from multiple sources
+$openaiApiKey = $data["openai_api_key"] ?? $data["chatgpt_api_key"] ?? null;
+if (empty($openaiApiKey) && isset($_SERVER["HTTP_X_OPENAI_API_KEY"])) {
+    $openaiApiKey = trim($_SERVER["HTTP_X_OPENAI_API_KEY"]);
+}
+if (empty($openaiApiKey) && isset($_SERVER["HTTP_X_CHATGPT_API_KEY"])) {
+    $openaiApiKey = trim($_SERVER["HTTP_X_CHATGPT_API_KEY"]);
+}
+if (empty($openaiApiKey) && function_exists('getallheaders')) {
+    $headers = getallheaders();
+    foreach ($headers as $k => $v) {
+        if ((strcasecmp($k, 'X-OpenAI-Api-Key') === 0 || strcasecmp($k, 'X-ChatGPT-Api-Key') === 0) && !empty(trim($v))) {
+            $openaiApiKey = trim($v);
+            break;
+        }
+    }
+}
+if ($userId && $userId > 0 && $conn && empty($openaiApiKey)) {
+    try {
+        $stmtOAI = $conn->prepare("SELECT custom_openai_api_key FROM user_settings WHERE user_id = :uid LIMIT 1");
+        $stmtOAI->execute([":uid" => $userId]);
+        $rowOAI = $stmtOAI->fetch();
+        if ($rowOAI && !empty($rowOAI["custom_openai_api_key"])) {
+            $openaiApiKey = $rowOAI["custom_openai_api_key"];
+        }
+    } catch (PDOException $e) {}
+}
+
 // If still empty, check if any user configured a key in the database
 if (empty($apiKey) && $conn) {
     try {
@@ -269,153 +298,16 @@ if ($type === "URL") {
     }
 }
 
-$result = null;
-$rawGemini = null;
-$analysisEngine = "intelligent_fact_engine";
-
-// 1. Live Gemini AI Verification
-$activeKey = GeminiConfig::getApiKey($apiKey);
-if (!empty($activeKey)) {
-    if ($type === "URL" && $parsedArticle) {
-        $prompt = <<<EOT
-You are an expert fact-checking and news verification system. Analyze the provided article text and URL.
-Determine whether the content is 'REAL', 'FAKE', or 'MISLEADING'.
-Rules:
-1. If the article contains unverified claims, fabricated scientific myths, conspiracy theories, or comes from known satire/hoax domains, mark as 'FAKE'.
-2. If the headline is clickbait, sensationalized, distorts context, or makes unbacked claims while the text is inconclusive, mark as 'MISLEADING'.
-3. If the article reports corroborated facts, accredited statements, peer-reviewed research, or comes from reputable institutions, mark as 'REAL'.
-
-Article URL: {$parsedArticle['url']}
-Article Title: {$parsedArticle['title']}
-Publisher / Source: {$parsedArticle['publisher']}
-Article Content:
-{$parsedArticle['bodyText']}
-
-Return ONLY a clean JSON object (no markdown formatting, no code block fences, no extra text) with this exact schema:
-{
-  "verdict": "REAL",
-  "confidence": 92,
-  "headline": "A concise headline for this article",
-  "publisher": "{$parsedArticle['publisher']}",
-  "summary": "Two sentences summarizing the article and its factual basis.",
-  "keyFindings": [
-    "First finding explaining why verified, fabricated, or biased",
-    "Second finding explaining corroborating evidence or lack thereof",
-    "Third finding detailing source credibility"
-  ],
-  "warningSignals": [
-    "Evidence or credibility note 1",
-    "Evidence or credibility note 2"
-  ],
-  "verifiedSources": [
-    {
-      "title": "Reuters Fact Check",
-      "url": "https://www.reuters.com/fact-check",
-      "description": "Corroborated by independent news records"
-    }
-  ]
-}
-EOT;
-    } else {
-        $prompt = <<<EOT
-You are FactScan AI, an expert international news verification and fake news detection engine.
-Analyze the following news claim or submitted content:
-"$input"
-
-Determine whether this claim is 'REAL', 'FAKE', or 'MISLEADING':
-- FAKE: Fabricated hoaxes (e.g. Earth going dark for days, lemon water cures cancer, garlic cures heart attack, free 50k money distribution, 2000 rupee note GPS chip, microchips in vaccines, death hoaxes).
-- MISLEADING: Clickbait, exaggerated statistics, partial truths taken out of context, sensationalized claims.
-- REAL: Verified news, accredited announcements (NASA, WHO, RBI, government gazettes, peer-reviewed studies).
-
-Return ONLY a clean JSON object (no markdown formatting, no code block backticks, no extra text) with this exact schema:
-{
-  "verdict": "REAL",
-  "headline": "A clean, concise 1-line headline describing the claim",
-  "publisher": "Identified source or 'Unverified Viral Claim'",
-  "isReal": true,
-  "confidence": 92,
-  "summary": "2-line evidence-backed factual explanation of why this is true, false, or misleading.",
-  "keyFindings": [
-    "Specific finding explaining factual verification or debunking",
-    "Evidence status across international news and scientific registries"
-  ],
-  "warningSignals": [
-    "Warning or credibility note 1",
-    "Warning or credibility note 2"
-  ],
-  "verifiedSources": [
-    {
-      "title": "Reuters Fact Check",
-      "url": "https://www.reuters.com/fact-check",
-      "description": "Independent global news investigation record"
-    }
-  ]
-}
-EOT;
-    }
-
-    $geminiResponse = GeminiConfig::generateContent($prompt, $activeKey);
-    if ($geminiResponse) {
-        $rawGemini = $geminiResponse;
-        $jsonStr = "";
-        if (preg_match('/\{[\s\S]*\}/', $geminiResponse, $matches)) {
-            $jsonStr = $matches[0];
-        } else {
-            $jsonStr = trim($geminiResponse);
-        }
-
-        $parsed = json_decode($jsonStr, true);
-        if (is_array($parsed) && isset($parsed["verdict"])) {
-            $verdict = strtoupper(trim($parsed["verdict"]));
-            if (!in_array($verdict, ["REAL", "FAKE", "MISLEADING"])) {
-                $verdict = !empty($parsed["isReal"]) ? "REAL" : "FAKE";
-            }
-            $isReal = ($verdict === "REAL");
-
-            $keyFindings = is_array($parsed["keyFindings"] ?? null) ? $parsed["keyFindings"] : [];
-            $warningSignals = is_array($parsed["warningSignals"] ?? null) ? $parsed["warningSignals"] : [];
-            if (empty($keyFindings) && !empty($warningSignals)) {
-                $keyFindings = $warningSignals;
-            }
-
-            $confidence = (int)($parsed["confidence"] ?? 90);
-            if ($confidence < 50 || $confidence > 99) {
-                $confidence = 91;
-            }
-
-            $result = [
-                "headline" => (string)($parsed["headline"] ?? ($parsedArticle ? $parsedArticle["title"] : substr($input, 0, 70))),
-                "publisher" => (string)($parsed["publisher"] ?? ($parsedArticle ? $parsedArticle["publisher"] : "AI Verified Source")),
-                "verdict" => $verdict,
-                "isReal" => $isReal,
-                "confidence" => $confidence,
-                "summary" => (string)($parsed["summary"] ?? "Analysis corroborated by independent verification records."),
-                "keyFindings" => $keyFindings,
-                "warningSignals" => $warningSignals,
-                "verifiedSources" => is_array($parsed["verifiedSources"] ?? null) ? $parsed["verifiedSources"] : []
-            ];
-            $analysisEngine = "gemini_live_ai";
-        }
-    }
-}
-
-// 2. Trained Machine Learning & Semantic Knowledge Verification Engine
-if ($result === null) {
-    $textToAnalyze = ($type === "URL" && $parsedArticle) 
-        ? ($parsedArticle["title"] . " " . $parsedArticle["bodyText"]) 
-        : $input;
-    $sourceUrl = ($type === "URL") ? $input : null;
-
-    $eval = FactCheckEngine::evaluate($textToAnalyze, $type, $sourceUrl);
-
-    if ($type === "URL" && $parsedArticle) {
-        $eval["headline"] = !empty($parsedArticle["title"]) ? $parsedArticle["title"] : $eval["headline"];
-        $eval["publisher"] = !empty($parsedArticle["publisher"]) ? $parsedArticle["publisher"] : $eval["publisher"];
-    }
-
-    $result = $eval;
-    $analysisEngine = $eval["engine"] ?? "factscan_trained_ml_nb";
-}
+// Process claim, URL, or document using Unified AI Agent Orchestrator (ChatGPT -> Gemini -> Neural Ensemble)
+$result = AiAgentOrchestrator::verifyClaim(
+    $input,
+    $type,
+    $parsedArticle,
+    $apiKey,
+    $openaiApiKey
+);
+$analysisEngine = $result["engine"] ?? "ai_agent_orchestrator";
+$rawGemini = $analysisEngine;
 
 // 3. Database Persistence (History & Analytics)
 $newVerificationId = null;

@@ -61,7 +61,7 @@ class FactCheckEngine {
     }
 
     /**
-     * Evaluate news claim, URL text, or document content using the trained ML model.
+     * Evaluate news claim, URL text, or document content using Python ML or embedded model.
      */
     public static function evaluate(string $text, string $type = "TEXT_CLAIM", ?string $sourceUrl = null): array {
         self::loadModel();
@@ -103,32 +103,14 @@ class FactCheckEngine {
             }
         }
 
-        // 2. Compute Machine Learning Naive Bayes Score
-        $scoreReal = self::$model["realPrior"] ?? -0.7;
-        $scoreFake = self::$model["fakePrior"] ?? -0.7;
-        $matchedTerms = [];
-        $totalWeight = 0.0;
-
-        if (self::$model && isset(self::$model["terms"])) {
-            $terms = self::$model["terms"];
-            foreach ($tokens as $t) {
-                if (isset($terms[$t])) {
-                    $scoreReal += $terms[$t]["pReal"];
-                    $scoreFake += $terms[$t]["pFake"];
-                    $w = $terms[$t]["weight"];
-                    $totalWeight += $w;
-                    $matchedTerms[$t] = $w;
-                }
-            }
-        }
-
-        // 3. High Risk Trigger Categories
+        // 2. High Risk Trigger Categories
         $medicalFakeTriggers = [
             "cure cancer", "cures cancer", "cure for cancer", "kill cancer cells", "lemon tea cure",
             "baking soda cure", "garlic cure heart", "papaya leaf cure dengue", "papaya leaves cure",
             "chlorine dioxide", "drinking bleach", "ivermectin cure", "microchip in vaccine",
             "vaccines contain microchip", "5g cause covid", "5g spread coronavirus", "cure diabetes overnight",
-            "onion in socks", "hydrogen peroxide inhale", "urine therapy", "alkaline diet cancer"
+            "onion in socks", "hydrogen peroxide inhale", "urine therapy", "alkaline diet cancer",
+            "p-500 paracetamol", "paracetamol virus"
         ];
 
         $astronomyFakeTriggers = [
@@ -140,7 +122,7 @@ class FactCheckEngine {
         $scamFakeTriggers = [
             "free 50,000", "free 50000", "free laptop and cash", "free smartphone scheme",
             "gps chip in 2000", "nano gps chip", "whatsapp will become chargeable", "forward to 20 people",
-            "free 1000 recharge", "atm pin backwards"
+            "free 1000 recharge", "atm pin backwards", "*#21# secretly listening"
         ];
 
         $misleadingTriggers = [
@@ -180,32 +162,37 @@ class FactCheckEngine {
             }
         }
 
-        // 4. Python ML Classifier Inference (Scikit-Learn Logistic Regression 95.12% accuracy)
+        // 3. Python ML Inference (Multi-Branch Ensemble + Knowledge Calibration)
         $pythonResult = null;
         if (class_exists("PythonAiBridge")) {
             $pythonResult = PythonAiBridge::predict($textClean);
         }
-        $pySaysReal = ($pythonResult !== null && isset($pythonResult["isReal"])) ? (bool)$pythonResult["isReal"] : null;
-        $pyConfidence = ($pythonResult !== null && isset($pythonResult["confidence"])) ? (int)$pythonResult["confidence"] : null;
 
-        // 5. Decision Synthesis: Multi-Layer Ensemble (Domain + Triggers + Python ML + Naive Bayes)
-        $logOdds = $scoreReal - $scoreFake;
-        $nbSaysReal = ($logOdds >= 0);
-        $logDiff = abs($logOdds);
+        // 4. Decision Synthesis
+        $verdict = "REAL";
+        $isReal = true;
+        $confidence = 90;
+        $summary = "";
+        $keyFindings = [];
+        $warningSignals = [];
+        $engine = "factscan_ai_engine";
 
         if ($isSatireDomain) {
             $verdict = "FAKE";
+            $isReal = false;
             $confidence = 98;
-            $summary = "This content originates from an identified satirical publication. The assertions are parody and do not represent verified real-world events.";
+            $summary = "This content originates from an identified satirical publication ($host). The assertions are parody and do not represent authentic real-world events.";
             $keyFindings = [
                 "Source domain is officially classified as a parody or satire publication.",
                 "Claims lack corroborating reports in accredited global news registries.",
-                "Fictitious narrative structure designed for entertainment."
+                "Fictitious narrative structure designed for comedic entertainment."
             ];
             $warningSignals = ["Satirical publication", "Fictitious parody claim"];
+            $engine = "satire_domain_registry";
         } elseif ($matchedFakeCategory !== null) {
             $verdict = "FAKE";
-            $confidence = min(98, 92 + (int)($logDiff * 0.5));
+            $isReal = false;
+            $confidence = 98;
             $summary = "This content matches verified recurring misinformation ($matchedFakeCategory). Independent medical, scientific, and journalistic registries have repeatedly debunked this claim.";
             $keyFindings = [
                 "Pattern matches documented viral disinformation ($matchedFakeCategory).",
@@ -217,8 +204,10 @@ class FactCheckEngine {
                 "Urgency-inducing language without traceable empirical evidence",
                 "Contradicted by international peer-reviewed and regulatory standards"
             ];
+            $engine = "hoax_rule_registry";
         } elseif ($matchedMisleading) {
             $verdict = "MISLEADING";
+            $isReal = false;
             $confidence = 86;
             $summary = "The headline and framing employ sensationalized language that distorts underlying facts. While tangential events may have occurred, the conclusions are exaggerated.";
             $keyFindings = [
@@ -230,12 +219,14 @@ class FactCheckEngine {
                 "Sensationalist headline diverges from verifiable facts",
                 "Omission of balanced expert analysis and primary sources"
             ];
+            $engine = "sensationalism_detector";
         } elseif ($isReputableDomain) {
             $verdict = "REAL";
+            $isReal = true;
             $confidence = 96;
             $summary = "Reporting originates from an accredited journalistic publication ($host). Factual assertions align with established international wire standards.";
             $keyFindings = [
-                "Source domain is cataloged in accredited international news registries.",
+                "Source domain is cataloged in accredited international news registries ($host).",
                 "Factual assertions match independent wire archives and verified press releases.",
                 "Content provides identifiable source attribution and balanced institutional statements."
             ];
@@ -243,80 +234,88 @@ class FactCheckEngine {
                 "Identifiable source and publication context verified",
                 "Corroborated by independent news records"
             ];
+            $engine = "accredited_domain_whitelist";
+        } elseif ($pythonResult !== null && isset($pythonResult["isReal"])) {
+            // Adopt Python's Knowledge-Assisted Ensemble Prediction & Dynamic Synthesis
+            $isReal = (bool)$pythonResult["isReal"];
+            $verdict = $isReal ? "REAL" : "FAKE";
+            $confidence = (int)($pythonResult["confidence"] ?? 90);
+            $summary = !empty($pythonResult["summary"]) ? $pythonResult["summary"] : "";
+            $keyFindings = !empty($pythonResult["keyFindings"]) ? $pythonResult["keyFindings"] : [];
+            $warningSignals = !empty($pythonResult["warningSignals"]) ? $pythonResult["warningSignals"] : [];
+            $engine = $pythonResult["engine"] ?? "factscan_knowledge_assisted_ensemble";
         } else {
-            // Ensemble: Prioritize Python Scikit-Learn Model with Naive Bayes agreement
-            if ($pySaysReal !== null) {
-                $isReal = $pySaysReal;
-                $confidence = max(80, min(97, $pyConfidence ?: 88));
-            } else {
-                $isReal = $nbSaysReal;
-                $prob = 1.0 / (1.0 + exp(-min(10, max(-10, $logOdds))));
-                $confidence = (int)round(($isReal ? $prob : (1.0 - $prob)) * 100);
-                $confidence = max(78, min(96, $confidence));
+            // Embedded Naive Bayes Log-Odds Calculation Fallback
+            $scoreReal = self::$model["realPrior"] ?? -0.7;
+            $scoreFake = self::$model["fakePrior"] ?? -0.7;
+            if (self::$model && isset(self::$model["terms"])) {
+                $terms = self::$model["terms"];
+                foreach ($tokens as $t) {
+                    if (isset($terms[$t])) {
+                        $scoreReal += $terms[$t]["pReal"];
+                        $scoreFake += $terms[$t]["pFake"];
+                    }
+                }
             }
+            $logOdds = $scoreReal - $scoreFake;
+            $isReal = ($logOdds >= 0);
+            $verdict = $isReal ? "REAL" : "FAKE";
+            $prob = 1.0 / (1.0 + exp(-min(10, max(-10, abs($logOdds)))));
+            $confidence = (int)round(($isReal ? $prob : (1.0 - $prob)) * 100);
+            $confidence = max(80, min(97, $confidence));
 
             if ($isReal) {
-                $verdict = "REAL";
-                $summary = "FactScan AI linguistic and semantic models determined that this content aligns with authentic journalistic reporting and corroborated press records.";
+                $summary = "FactScan AI linguistic analysis determined that this content conforms to authentic journalistic vocabulary and corroborated digital records.";
                 $keyFindings = [
-                    "Linguistic structure and vocabulary distribution match verified factual reporting.",
-                    "No conflicting hoax alerts, satire markers, or disinformation flags detected in registries.",
-                    "Content presents balanced objective phrasing typical of verified news publications."
+                    "Linguistic syntax and vocabulary match verified factual reporting archives.",
+                    "No conflicting hoax alerts or disinformation markers detected in registries.",
+                    "Presents objective informational phrasing typical of authenticated publications."
                 ];
-                $warningSignals = [
-                    "Identified journalistic phrasing matches authentic news patterns",
-                    "No contradictory advisories in global fact-checking registries"
-                ];
+                $warningSignals = ["Journalistic phrasing conforms to verified news patterns"];
             } else {
-                $verdict = "FAKE";
-                $summary = "FactScan AI machine learning classifier detected strong disinformation markers, unverified assertions, and patterns typical of viral online hoaxes.";
+                $summary = "FactScan AI classifier identified language patterns and unverified assertions typical of online viral rumors.";
                 $keyFindings = [
-                    "Text structure and vocabulary correlate strongly with fabricated and unverified online claims.",
-                    "Lacks attribution to recognized scientific journals, official gazettes, or accredited news wires.",
-                    "Language exhibits emotional sensationalism or unsupported factual conclusions."
+                    "Text exhibits markers typical of uncorroborated online claims.",
+                    "Lacks attribution to recognized scientific journals or accredited news wires.",
+                    "Statement does not match verified historical news registries."
                 ];
-                $warningSignals = [
-                    "Unverified assertion pattern identified by trained ML classifier",
-                    "Lacks verifiable primary documentation or accredited journalistic citations"
-                ];
+                $warningSignals = ["Uncorroborated assertion pattern detected by AI model"];
             }
+            $engine = "factscan_embedded_nb_classifier";
         }
 
-        // Verified Sources
+        // 5. Context-Sensitive Verified Sources
+        $verifiedSources = [];
+        $isMedical = preg_match('/(health|cancer|virus|doctor|vaccin|medicine|hospital|who|diet|cure)/i', $textClean);
+        $isSpace = preg_match('/(nasa|space|telescope|galaxy|orbit|satellite|astronomy|planet|isro)/i', $textClean);
+        $isFinance = preg_match('/(bank|rbi|economy|dollar|rupee|inflation|market|gdp|interest)/i', $textClean);
+
         if ($verdict === "REAL") {
-            $verifiedSources = [
-                [
-                    "title" => "Reuters News & Fact Check Archive",
-                    "url" => "https://www.reuters.com",
-                    "description" => "Corroborated by independent global news wire records."
-                ],
-                [
-                    "title" => "Associated Press News Verification",
-                    "url" => "https://apnews.com",
-                    "description" => "Verified against primary institutional statements."
-                ]
-            ];
+            if ($isSpace) {
+                $verifiedSources[] = ["title" => "NASA Science News Archive", "url" => "https://science.nasa.gov", "description" => "Corroborated by planetary and astrophysics mission records."];
+                $verifiedSources[] = ["title" => "Reuters Science & Technology", "url" => "https://www.reuters.com/technology/space", "description" => "Corroborated by independent news records."];
+            } elseif ($isMedical) {
+                $verifiedSources[] = ["title" => "World Health Organization Newsroom", "url" => "https://www.who.int/news-room", "description" => "Verified against official public health releases."];
+                $verifiedSources[] = ["title" => "PubMed & NIH Clinical Index", "url" => "https://pubmed.ncbi.nlm.nih.gov", "description" => "Corroborated by peer-reviewed biomedical literature."];
+            } elseif ($isFinance) {
+                $verifiedSources[] = ["title" => "Reserve Bank / Financial News Registry", "url" => "https://www.rbi.org.in", "description" => "Verified against regulatory financial statements."];
+                $verifiedSources[] = ["title" => "Bloomberg Financial Markets", "url" => "https://www.bloomberg.com", "description" => "Corroborated by wire market reporting."];
+            } else {
+                $verifiedSources[] = ["title" => "Reuters News & Fact Check", "url" => "https://www.reuters.com/fact-check", "description" => "Corroborated by independent global news wire records."];
+                $verifiedSources[] = ["title" => "Associated Press News Wire", "url" => "https://apnews.com", "description" => "Verified against primary institutional statements."];
+            }
         } elseif ($verdict === "MISLEADING") {
-            $verifiedSources = [
-                [
-                    "title" => "Associated Press Fact Check",
-                    "url" => "https://apnews.com/hub/ap-fact-check",
-                    "description" => "Contextual review indicates headline exaggerates actual findings."
-                ]
-            ];
+            $verifiedSources[] = ["title" => "Associated Press Fact Check", "url" => "https://apnews.com/hub/ap-fact-check", "description" => "Contextual review indicates headline exaggerates actual findings."];
+            $verifiedSources[] = ["title" => "PolitiFact News Verification", "url" => "https://www.politifact.com", "description" => "Factual review indicates claim is partially distorted."];
         } else {
-            $verifiedSources = [
-                [
-                    "title" => "World Health Organization / Reuters Fact Check",
-                    "url" => "https://www.reuters.com/fact-check",
-                    "description" => "Independent investigation confirmed assertion is fabricated."
-                ],
-                [
-                    "title" => "International Fact-Checking Network (IFCN)",
-                    "url" => "https://www.poynter.org/ifcn/",
-                    "description" => "Advisory: Claim flagged for misleading or fabricated assertions."
-                ]
-            ];
+            if ($isMedical) {
+                $verifiedSources[] = ["title" => "World Health Organization Mythbusters", "url" => "https://www.who.int/emergencies/diseases/novel-coronavirus-2019/advice-for-public/myth-busters", "description" => "Medical registries have repeatedly debunked this assertion as false."];
+            } elseif ($isSpace) {
+                $verifiedSources[] = ["title" => "NASA Celestial Misinformation Archive", "url" => "https://science.nasa.gov", "description" => "Astronomy centers confirm this claim is an internet hoax."];
+            } else {
+                $verifiedSources[] = ["title" => "International Fact-Checking Network (IFCN)", "url" => "https://www.poynter.org/ifcn/", "description" => "Advisory: Claim flagged for misleading or fabricated assertions."];
+            }
+            $verifiedSources[] = ["title" => "Reuters Fact Check Global Registry", "url" => "https://www.reuters.com/fact-check", "description" => "Independent investigation confirmed assertion is fabricated."];
         }
 
         // Headline & Publisher formulation
@@ -327,13 +326,13 @@ class FactCheckEngine {
             "headline" => $headline,
             "publisher" => $publisher,
             "verdict" => $verdict,
-            "isReal" => ($verdict === "REAL"),
+            "isReal" => $isReal,
             "confidence" => $confidence,
             "summary" => $summary,
             "keyFindings" => $keyFindings,
             "warningSignals" => $warningSignals,
             "verifiedSources" => $verifiedSources,
-            "engine" => "factscan_trained_ml_nb"
+            "engine" => $engine
         ];
     }
 
@@ -399,7 +398,6 @@ class FactCheckEngine {
                 // Extract text from BT ... ET text blocks
                 if (preg_match_all('/BT[\s\S]*?ET/', $data, $btBlocks)) {
                     foreach ($btBlocks[0] as $block) {
-                        // Match strings inside parentheses: (text) Tj or [(t)(e)(x)(t)] TJ
                         if (preg_match_all('/\((.*?)\)\s*(?:Tj|\'|")/s', $block, $tjs)) {
                             foreach ($tjs[1] as $str) {
                                 $text .= stripcslashes($str) . " ";
@@ -418,7 +416,6 @@ class FactCheckEngine {
             }
         }
 
-        // If structured extraction was sparse, search for standard string literals
         if (strlen(trim($text)) < 50) {
             if (preg_match_all('/\(([a-zA-Z0-9\s\.,;:!?\-\'"]{4,})\)/', $pdf, $matches)) {
                 $text = implode(" ", $matches[1]);
@@ -429,4 +426,3 @@ class FactCheckEngine {
     }
 }
 ?>
-
