@@ -211,6 +211,10 @@ def predict(text):
         if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
             credibility_boost += 0.15
 
+        # Objective reporting baseline: Factual, calm news with zero sensationalism or panic indicators
+        if sensational == 0 and urgency == 0 and fear == 0 and not knowledge.get("matchedHoax"):
+            credibility_boost += 0.28
+
         penalty = 0.0
         if sensational >= 30:
             penalty += 0.25

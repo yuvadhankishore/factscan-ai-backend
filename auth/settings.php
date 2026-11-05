@@ -54,7 +54,7 @@ if ($method === "POST" && isset($input["_method"]) && strtoupper($input["_method
 try {
     if ($method === "GET") {
         $stmt = $conn->prepare(
-            "SELECT strict_verification, auto_save_history, notifications_enabled, custom_gemini_api_key
+            "SELECT strict_verification, auto_save_history, notifications_enabled, custom_gemini_api_key, custom_openai_api_key
              FROM user_settings
              WHERE user_id = :user_id
              LIMIT 1"
@@ -67,7 +67,8 @@ try {
                 "strict_verification" => 1,
                 "auto_save_history" => 1,
                 "notifications_enabled" => 1,
-                "custom_gemini_api_key" => null
+                "custom_gemini_api_key" => null,
+                "custom_openai_api_key" => null
             ];
         }
 
@@ -78,15 +79,16 @@ try {
                 "strict_verification" => (bool)$settings["strict_verification"],
                 "auto_save_history" => (bool)$settings["auto_save_history"],
                 "notifications_enabled" => (bool)$settings["notifications_enabled"],
-                    "has_custom_api_key" => !empty($settings["custom_gemini_api_key"]),
-                "custom_gemini_api_key" => $settings["custom_gemini_api_key"] ?? ""
+                "has_custom_api_key" => !empty($settings["custom_gemini_api_key"]) || !empty($settings["custom_openai_api_key"]),
+                "custom_gemini_api_key" => $settings["custom_gemini_api_key"] ?? "",
+                "custom_openai_api_key" => $settings["custom_openai_api_key"] ?? ""
             ]
         ]);
     }
 
     if ($method === "PUT" || $method === "POST") {
         $stmtCur = $conn->prepare(
-            "SELECT strict_verification, auto_save_history, notifications_enabled, custom_gemini_api_key
+            "SELECT strict_verification, auto_save_history, notifications_enabled, custom_gemini_api_key, custom_openai_api_key
              FROM user_settings
              WHERE user_id = :user_id
              LIMIT 1"
@@ -98,27 +100,31 @@ try {
         $curAutosave = $cur ? (int)$cur["auto_save_history"] : 1;
         $curNotifications = $cur ? (int)$cur["notifications_enabled"] : 1;
         $curApiKey = $cur ? $cur["custom_gemini_api_key"] : null;
+        $curOpenAiKey = $cur ? $cur["custom_openai_api_key"] : null;
 
         $newStrict = isset($input["strict_verification"]) ? (int)(bool)$input["strict_verification"] : $curStrict;
         $newAutosave = isset($input["auto_save_history"]) ? (int)(bool)$input["auto_save_history"] : $curAutosave;
         $newNotifications = isset($input["notifications_enabled"]) ? (int)(bool)$input["notifications_enabled"] : $curNotifications;
         $newApiKey = array_key_exists("custom_gemini_api_key", $input) ? (trim($input["custom_gemini_api_key"]) ?: null) : $curApiKey;
+        $newOpenAiKey = array_key_exists("custom_openai_api_key", $input) ? (trim($input["custom_openai_api_key"]) ?: null) : $curOpenAiKey;
 
         $stmtSave = $conn->prepare(
-            "INSERT INTO user_settings (user_id, strict_verification, auto_save_history, notifications_enabled, custom_gemini_api_key)
-             VALUES (:user_id, :strict, :autosave, :notifications, :api_key)
+            "INSERT INTO user_settings (user_id, strict_verification, auto_save_history, notifications_enabled, custom_gemini_api_key, custom_openai_api_key)
+             VALUES (:user_id, :strict, :autosave, :notifications, :api_key, :openai_key)
              ON DUPLICATE KEY UPDATE
                 strict_verification = VALUES(strict_verification),
                 auto_save_history = VALUES(auto_save_history),
                 notifications_enabled = VALUES(notifications_enabled),
-                custom_gemini_api_key = VALUES(custom_gemini_api_key)"
+                custom_gemini_api_key = VALUES(custom_gemini_api_key),
+                custom_openai_api_key = VALUES(custom_openai_api_key)"
         );
         $stmtSave->execute([
             ":user_id" => $userId,
             ":strict" => $newStrict,
             ":autosave" => $newAutosave,
             ":notifications" => $newNotifications,
-            ":api_key" => $newApiKey
+            ":api_key" => $newApiKey,
+            ":openai_key" => $newOpenAiKey
         ]);
 
         sendResponse(200, [
@@ -129,7 +135,9 @@ try {
                 "strict_verification" => (bool)$newStrict,
                 "auto_save_history" => (bool)$newAutosave,
                 "notifications_enabled" => (bool)$newNotifications,
-                "has_custom_api_key" => !empty($newApiKey)
+                "has_custom_api_key" => !empty($newApiKey) || !empty($newOpenAiKey),
+                "custom_gemini_api_key" => $newApiKey ?? "",
+                "custom_openai_api_key" => $newOpenAiKey ?? ""
             ]
         ]);
     }
