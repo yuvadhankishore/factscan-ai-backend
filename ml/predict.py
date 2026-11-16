@@ -297,6 +297,16 @@ def predict(text):
     if feats.get("factualNumericalDensity", 0) > 10:
         feature_indicators.append(f"Numerical evidence density: {feats['factualNumericalDensity']}%")
 
+    forensic_metrics = {
+        "sensationalism": feats.get("sensationalismIndex", 0),
+        "urgency": feats.get("urgencyPanicLevel", 0),
+        "credibility": min(100, max(15, (feats.get("institutionalAttribution", 0) * 2) + (35 if is_real else 5))),
+        "evidenceDensity": feats.get("factualNumericalDensity", 0),
+        "fearLevel": feats.get("fearMongeringLevel", 0),
+        "biasLevel": feats.get("definitiveCertaintyBias", 0),
+        "corroboratedSources": knowledge.get("institutions", [])
+    }
+
     return {
         "success": True,
         "isReal": is_real,
@@ -306,6 +316,8 @@ def predict(text):
             "fake": round(prob_fake, 4)
         },
         "features": feats,
+        "forensicMetrics": forensic_metrics,
+        "corroboratedSources": knowledge.get("institutions", []),
         "topFeatureIndicators": feature_indicators,
         "warningSignals": signals,
         "keyFindings": findings,
