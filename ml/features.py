@@ -95,6 +95,18 @@ DEFINITIVE_BIAS_PHRASES = [
     "doctors don't want you to know", "cure all", "100% cure"
 ]
 
+PSEUDOSCIENCE_PATTERNS = [
+    r"\b(alkaline\s+(diet|water)\s+(cures?|prevents?)\s+cancer)\b",
+    r"\b(miracle\s+mineral\s+solution|mms\s+protocol)\b",
+    r"\b(detox\s+(pads?|patches?|tea)\s+(extracts?|flushes?)\s+toxins?)\b",
+    r"\b(anti[- ]5g\s+(quantum|radiation)\s+(shield|device|pendant))\b",
+    r"\b(pure\s+lemon\s+kills\s+cancer\s+cells\s+\d+\s+times)\b",
+    r"\b(reverse[sd]?\s+(diabetes|grey\s+hair|baldness)\s+in\s+\d+\s+(days?|hours?))\b",
+    r"\b(vaccin(e|es|ation)\s+(alters?|modifies?)\s+(human\s+)?dna)\b",
+    r"\b(quantum\s+frequency\s+(healing|medicine|cure))\b",
+    r"\b(big\s+pharma\s+(conspiracy|hiding\s+the\s+cure))\b"
+]
+
 class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
     """
     Extracts 12 high-signal stylistic, linguistic, and credibility features
@@ -159,9 +171,10 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         fear_count = sum(1 for w in words if w in FEAR_MONGERING_TERMS)
         fear_score = min(1.0, (fear_count / total_words) * 8)
 
-        # 11. Absolute Definitive Certainty Bias
+        # 11. Absolute Definitive Certainty Bias & Medical Pseudoscience Score
         bias_count = sum(1 for phrase in DEFINITIVE_BIAS_PHRASES if phrase in text_lower)
-        bias_score = min(1.0, bias_count * 0.35)
+        pseudo_count = sum(1 for pat in PSEUDOSCIENCE_PATTERNS if re.search(pat, text_lower))
+        bias_score = min(1.0, (bias_count * 0.35) + (pseudo_count * 0.45))
 
         return [
             sensational_score,
