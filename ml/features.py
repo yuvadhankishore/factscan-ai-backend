@@ -6,8 +6,26 @@ SENSATIONAL_WORDS = {
     "shocking", "miracle", "mind-blowing", "exposed", "secret", "unbelievable",
     "viral", "banned", "truth about", "breaking alert", "unreal", "magic",
     "cure overnight", "hidden truth", "insane", "you won't believe", "conspiracy",
-    "share before deleted", "bombshell", "forbidden", "illuminati", "coverup"
+    "share before deleted", "bombshell", "forbidden", "illuminati", "coverup",
+    "jaw-dropping", "mind-boggling", "astonishing", "staggering", "scandalous",
+    "nightmare", "apocalyptic", "cataclysmic", "game-changer", "devastating",
+    "unprecedented disaster", "sinister", "plot exposed", "horrifying", "chilling"
 }
+
+CLICKBAIT_PATTERNS = [
+    r"\b(you\s+won'?t\s+believe(\s+what)?)\b",
+    r"\b(what\s+happens\s+next(\s+will)?)\b",
+    r"\b(blows?\s+your\s+mind|jaw[- ]dropping)\b",
+    r"\b(secret\s+(they|doctors|government)\s+(don'?t|won'?t)\s+want\s+you\s+to\s+know)\b",
+    r"\b(mainstream\s+media\s+(won'?t|refuses\s+to)\s+(show|tell))\b",
+    r"\b(before\s+it'?s\s+(taken\s+down|banned|deleted))\b",
+    r"\b(this\s+one\s+(simple\s+)?trick)\b",
+    r"\b(number\s+\d+\s+will\s+(shock|amaze)\s+you)\b",
+    r"\b(everyone\s+is\s+talking\s+about|breaks?\s+the\s+internet)\b",
+    r"\b(shocking\s+(truth|revelation|discovery|footage|secret|leak))\b",
+    r"\b(the\s+real\s+reason\s+behind)\b",
+    r"\b(what\s+they\s+are\s+hiding\s+from\s+you)\b"
+]
 
 URGENCY_PHRASES = [
     "forward this", "share before deleted", "warn everyone", "urgent alert",
@@ -74,9 +92,10 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         words = re.findall(r'\b\w+\b', text_lower)
         total_words = max(len(words), 1)
 
-        # 0. Sensationalism Score
+        # 0. Sensationalism & Clickbait Score
         sensational_count = sum(1 for w in words if w in SENSATIONAL_WORDS)
-        sensational_score = min(1.0, (sensational_count / total_words) * 10)
+        clickbait_matches = sum(1 for pat in CLICKBAIT_PATTERNS if re.search(pat, text_lower))
+        sensational_score = min(1.0, ((sensational_count / total_words) * 10) + (clickbait_matches * 0.35))
 
         # 1. Urgency / Viral Forward Score
         urgency_count = sum(1 for phrase in URGENCY_PHRASES if phrase in text_lower)
