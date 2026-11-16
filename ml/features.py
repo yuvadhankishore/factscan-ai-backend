@@ -77,6 +77,18 @@ FEAR_MONGERING_TERMS = {
     "flesh-eating", "contaminated water", "death toll soaring", "lethal hazard"
 }
 
+QUANTITATIVE_EVIDENCE_PATTERNS = [
+    r"\b(\$|€|£|₹|usd|inr|eur)\s?\d+([\d,.]*\d+)?\b",
+    r"\b\d+([\d,.]*\d+)?\s*(billion|million|trillion|crore|lakh)\b",
+    r"\b\d+(\.\d+)?%\b|\b\d+(\.\d+)?\s*percent\b",
+    r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{4}\b",
+    r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+    r"\b(20[0-2][0-9])\b",
+    r"\b(phase\s+[i|ii|iii|iv|1|2|3|4]\s+trials?|clinical\s+trials?)\b",
+    r"\b(sample\s+size\s+of|cohort\s+of|\bn\s*=\s*\d+)\b",
+    r"\b(section\s+\d+[a-z]?|article\s+\d+|act\s+of\s+\d{4}|resolution\s+\d+)\b"
+]
+
 DEFINITIVE_BIAS_PHRASES = [
     "100 percent", "guaranteed", "proven fact", "undeniable", "permanent cure",
     "miracle remedy", "secret revealed", "totally destroys", "miracle juice",
@@ -127,9 +139,10 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         punct_count = len(re.findall(r'[!?]{1,}', text_str))
         punct_density = min(1.0, punct_count / total_words)
 
-        # 6. Numerical & Statistical Density
+        # 6. Numerical & Statistical Evidence Density
         numbers = re.findall(r'\b\d+(?:\.\d+)?%?\b', text_str)
-        num_density = min(1.0, len(numbers) / total_words)
+        quant_matches = sum(1 for pat in QUANTITATIVE_EVIDENCE_PATTERNS if re.search(pat, text_lower))
+        num_density = min(1.0, (len(numbers) / total_words) + (quant_matches * 0.15))
 
         # 7. Lexical Diversity (Type-Token Ratio)
         lex_div = len(set(words)) / total_words
