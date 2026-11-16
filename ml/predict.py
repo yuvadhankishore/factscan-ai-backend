@@ -44,7 +44,21 @@ VIRAL_HOAX_REGISTRY = [
     (r"\b(share\s+before\s+(it\s+is\s+)?deleted)\b", "Manufactured urgency tactic typical of viral disinformation", "Social"),
     (r"\b(nano\s+gps\s+chip|gps\s+chip\s+in\s+(2000|500))\b", "Debunked currency tracking hoax dismissed by central banks", "Financial"),
     (r"\b(atm\s+pin\s+(backwards?|in\s+reverse))\b", "Fictitious emergency cash machine feature myth", "Financial"),
-    (r"\b(\*#21#|dial\s+\*#\d+#)\b.*\b(listening|hacked|tapped)\b", "Standard network call-forwarding interrogation code misidentified as spyware alert", "Technology")
+    (r"\b(\*#21#|dial\s+\*#\d+#)\b.*\b(listening|hacked|tapped)\b", "Standard network call-forwarding interrogation code misidentified as spyware alert", "Technology"),
+    (r"\b(bank\s+account\s+(frozen|blocked|suspended)\s+unless\s+you\s+click)\b", "Urgent banking credential phishing scare", "Financial"),
+    (r"\b(sim\s+card\s+will\s+be\s+deactivated\s+(tonight|in\s+24\s+hours))\b", "Telecom urgency panic message targeting user credentials", "Technology"),
+    
+    # Modern Digital & Artificial Intelligence Hoaxes
+    (r"\b(ai\s+robot\s+(escaped|killed|turned\s+sentient|refused\s+shutdown))\b", "Sensationalized artificial intelligence myth", "Technology"),
+    (r"\b(celebrity\s+(arrested|died|executed)\s+live\s+on\s+air)\b", "Manufactured clickbait celebrity death or arrest hoax", "Celebrity"),
+    
+    # Viral Health & Environmental Conspiracies
+    (r"\b(drinking\s+(hot\s+water|boiled\s+ginger|warm\s+lemon)\s+kills\s+(all\s+)?viruses?)\b", "Unfounded medical home remedy falsely claiming viral elimination", "Medical"),
+    (r"\b(drinking\s+water\s+from\s+plastic\s+bottles?\s+in\s+cars?\s+causes\s+cancer)\b", "Recurrent social media chemical scare dismissed by oncology registries", "Medical"),
+    (r"\b(chemtrails?\s+(poisoning|spraying|mind\s+control|weather\s+weapon))\b", "Long-standing aerosol conspiracy debunked by atmospheric scientists", "Environment"),
+    (r"\b(flat\s+earth|ice\s+wall\s+at\s+antarctica|antarctic\s+dome)\b", "Disproven flat-earth pseudo-geography contrary to satellite geodesy", "Science"),
+    (r"\b(mars\s+will\s+look\s+as\s+big\s+as\s+the\s+full\s+moon)\b", "Annual astronomical scale hoax regarding Martian optical size", "Astronomy"),
+    (r"\b(government\s+(installing|mandating)\s+microphones?\s+in\s+light\s+bulbs)\b", "Surveillance conspiracy narrative without evidentiary basis", "Conspiracy")
 ]
 
 # Accredited institutions and official authorities
