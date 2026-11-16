@@ -51,10 +51,14 @@ class FactCheckEngine {
             }
         }
 
+        // Add bigrams and trigrams
         $tokens = $filtered;
         $count = count($filtered);
         for ($i = 0; $i < $count - 1; $i++) {
             $tokens[] = $filtered[$i] . "_" . $filtered[$i + 1];
+            if ($i < $count - 2) {
+                $tokens[] = $filtered[$i] . "_" . $filtered[$i + 1] . "_" . $filtered[$i + 2];
+            }
         }
 
         return $tokens;

@@ -106,7 +106,26 @@ CREDIBLE_INSTITUTIONS = [
     ("harvard", "Harvard University Research Publications"),
     ("stanford", "Stanford University Research"),
     ("snopes", "Snopes Fact Check Registry"),
-    ("politifact", "PolitiFact Truth-O-Meter")
+    ("politifact", "PolitiFact Truth-O-Meter"),
+    ("pnas", "PNAS (Proceedings of the National Academy of Sciences)"),
+    ("ieee", "IEEE Research & Standards Archives"),
+    ("cell", "Cell Press Life Sciences Publishing"),
+    ("bmj", "The BMJ (British Medical Journal)"),
+    ("jama", "JAMA (Journal of the American Medical Association)"),
+    ("nejm", "The New England Journal of Medicine"),
+    ("caltech", "Caltech Planetary & Space Science"),
+    ("max planck", "Max Planck Society Research Institute"),
+    ("cisa", "CISA (Cybersecurity & Infrastructure Security Agency)"),
+    ("nist", "NIST (National Institute of Standards and Technology)"),
+    ("wmo", "WMO (World Meteorological Organization)"),
+    ("ipcc", "IPCC (Intergovernmental Panel on Climate Change)"),
+    ("full fact", "Full Fact Independent Verification"),
+    ("factcheck.org", "FactCheck.org (Annenberg Center)"),
+    ("lead stories", "Lead Stories Verification Bureau"),
+    ("afp factuel", "AFP Fact Check Global"),
+    ("check your fact", "Check Your Fact Investigative Desk"),
+    ("boom live", "BOOM FactCheck Bureau"),
+    ("alt news", "Alt News Verification Desk")
 ]
 
 def analyze_domain_knowledge(text):

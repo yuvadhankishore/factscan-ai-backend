@@ -127,19 +127,26 @@ Analyze the following news claim or submitted content:
 
 Instructions:
 1. Determine whether this claim is 'REAL', 'FAKE', or 'MISLEADING':
-   - FAKE: Fabricated hoaxes (e.g. Earth going dark for days, lemon water cures cancer, garlic cures heart attack, free 50k money distribution, 2000 rupee note GPS chip, microchips in vaccines, death hoaxes).
-   - MISLEADING: Clickbait, exaggerated statistics, partial truths taken out of context, sensationalized claims.
-   - REAL: Verified news, accredited announcements (NASA, WHO, ISRO, RBI, government gazettes, peer-reviewed studies).
-2. Formulate a concise 1-line headline describing the claim.
-3. Identify the publisher or source (e.g. 'WHO Press Wire', 'NASA Science', or 'Unverified Viral Claim').
-4. Formulate a 2-line evidence-backed summary explaining the factual basis.
-5. Provide 3 specific key findings and 2 warning or credibility signals.
+   - FAKE: Fabricated hoaxes across domains:
+     * Medicine: lemon/garlic cures cancer, boiled leaves cure diabetes, bleach cures autism, microchips in vaccines.
+     * Space & Physics: Earth 6 days of darkness, Nibiru collision, gravity turning off, sun rising from west.
+     * Finance: 500 note demonetization overnight, free 50,000 cash links, reverse ATM pin calls police.
+     * Technology: AI robot escaped and killed scientists, 5G towers alter human emotions, phone explodes on call.
+     * Geopolitics: UN secret world government treaty, satellite-flipped election ballots, fake war alerts.
+   - MISLEADING: Clickbait sensationalism, exaggerated statistics, partial truths taken out of context.
+   - REAL: Verified news and accredited announcements (NASA, WHO, ISRO, RBI, UN, ICMR, NIH, Reuters, AP, BBC, Lancet).
+2. Identify the domain: 'Medicine', 'Astronomy', 'Finance', 'Technology', 'Geopolitics', or 'General'.
+3. Formulate a concise 1-line headline describing the claim.
+4. Identify the publisher or source (e.g. 'WHO Press Wire', 'NASA Science', or 'Unverified Viral Claim').
+5. Formulate a 2-line evidence-backed summary explaining the factual basis.
+6. Provide 3 specific key findings and 2 warning or credibility signals.
 
 Return ONLY a clean JSON object (no markdown fences, no backticks, no extra text):
 {
   "verdict": "REAL",
   "isReal": true,
   "confidence": 95,
+  "domain": "Astronomy",
   "headline": "Concise 1-line headline describing the claim",
   "publisher": "Identified source or 'Unverified Viral Claim'",
   "summary": "2-line evidence-backed explanation of why this is true, false, or misleading.",
@@ -227,6 +234,7 @@ EOT;
         return [
             "headline" => $headline,
             "publisher" => $publisher,
+            "domain" => (string)($parsed["domain"] ?? "General News"),
             "verdict" => $verdict,
             "isReal" => $isReal,
             "confidence" => $confidence,
