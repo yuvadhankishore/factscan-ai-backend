@@ -44,7 +44,21 @@ VIRAL_HOAX_REGISTRY = [
     (r"\b(share\s+before\s+(it\s+is\s+)?deleted)\b", "Manufactured urgency tactic typical of viral disinformation", "Social"),
     (r"\b(nano\s+gps\s+chip|gps\s+chip\s+in\s+(2000|500))\b", "Debunked currency tracking hoax dismissed by central banks", "Financial"),
     (r"\b(atm\s+pin\s+(backwards?|in\s+reverse))\b", "Fictitious emergency cash machine feature myth", "Financial"),
-    (r"\b(\*#21#|dial\s+\*#\d+#)\b.*\b(listening|hacked|tapped)\b", "Standard network call-forwarding interrogation code misidentified as spyware alert", "Technology")
+    (r"\b(\*#21#|dial\s+\*#\d+#)\b.*\b(listening|hacked|tapped)\b", "Standard network call-forwarding interrogation code misidentified as spyware alert", "Technology"),
+    (r"\b(bank\s+account\s+(frozen|blocked|suspended)\s+unless\s+you\s+click)\b", "Urgent banking credential phishing scare", "Financial"),
+    (r"\b(sim\s+card\s+will\s+be\s+deactivated\s+(tonight|in\s+24\s+hours))\b", "Telecom urgency panic message targeting user credentials", "Technology"),
+    
+    # Modern Digital & Artificial Intelligence Hoaxes
+    (r"\b(ai\s+robot\s+(escaped|killed|turned\s+sentient|refused\s+shutdown))\b", "Sensationalized artificial intelligence myth", "Technology"),
+    (r"\b(celebrity\s+(arrested|died|executed)\s+live\s+on\s+air)\b", "Manufactured clickbait celebrity death or arrest hoax", "Celebrity"),
+    
+    # Viral Health & Environmental Conspiracies
+    (r"\b(drinking\s+(hot\s+water|boiled\s+ginger|warm\s+lemon)\s+kills\s+(all\s+)?viruses?)\b", "Unfounded medical home remedy falsely claiming viral elimination", "Medical"),
+    (r"\b(drinking\s+water\s+from\s+plastic\s+bottles?\s+in\s+cars?\s+causes\s+cancer)\b", "Recurrent social media chemical scare dismissed by oncology registries", "Medical"),
+    (r"\b(chemtrails?\s+(poisoning|spraying|mind\s+control|weather\s+weapon))\b", "Long-standing aerosol conspiracy debunked by atmospheric scientists", "Environment"),
+    (r"\b(flat\s+earth|ice\s+wall\s+at\s+antarctica|antarctic\s+dome)\b", "Disproven flat-earth pseudo-geography contrary to satellite geodesy", "Science"),
+    (r"\b(mars\s+will\s+look\s+as\s+big\s+as\s+the\s+full\s+moon)\b", "Annual astronomical scale hoax regarding Martian optical size", "Astronomy"),
+    (r"\b(government\s+(installing|mandating)\s+microphones?\s+in\s+light\s+bulbs)\b", "Surveillance conspiracy narrative without evidentiary basis", "Conspiracy")
 ]
 
 # Accredited institutions and official authorities
@@ -55,21 +69,44 @@ CREDIBLE_INSTITUTIONS = [
     ("isro", "ISRO (Indian Space Research Organisation)"),
     ("cdc", "CDC (Centers for Disease Control and Prevention)"),
     ("fda", "FDA (Food and Drug Administration)"),
+    ("nih", "NIH (National Institutes of Health)"),
+    ("icmr", "ICMR (Indian Council of Medical Research)"),
+    ("ema", "EMA (European Medicines Agency)"),
     ("rbi", "RBI (Reserve Bank of India)"),
     ("reserve bank", "Reserve Bank of India"),
     ("pib", "Press Information Bureau (PIB Fact Check)"),
     ("united nations", "United Nations (UN)"),
+    ("unicef", "UNICEF Children's Fund"),
+    ("unesco", "UNESCO Educational, Scientific & Cultural Org"),
+    ("iaea", "IAEA (International Atomic Energy Agency)"),
+    ("imf", "International Monetary Fund (IMF)"),
+    ("world bank", "The World Bank Group"),
     ("supreme court", "Supreme Court Registry"),
     ("high court", "High Court Registry"),
     ("reuters", "Reuters News Agency"),
     ("associated press", "Associated Press (AP Wire)"),
     ("ap news", "Associated Press (AP Wire)"),
+    ("afp", "Agence France-Presse (AFP Wire)"),
+    ("pti", "Press Trust of India (PTI Wire)"),
+    ("ani", "Asian News International (ANI Wire)"),
     ("bbc", "BBC News Reporting"),
     ("bloomberg", "Bloomberg Financial Markets"),
+    ("the hindu", "The Hindu National Reporting"),
+    ("wsj", "The Wall Street Journal"),
+    ("financial times", "Financial Times"),
     ("nature", "Nature Journal of Science"),
     ("lancet", "The Lancet Medical Journal"),
+    ("science", "Science (AAAS Journal)"),
     ("cern", "CERN European Nuclear Research Organization"),
-    ("noaa", "NOAA Climate & Atmospheric Administration")
+    ("noaa", "NOAA Climate & Atmospheric Administration"),
+    ("esa", "ESA (European Space Agency)"),
+    ("oxford", "Oxford University Research Archive"),
+    ("cambridge", "Cambridge Academic Repository"),
+    ("mit", "MIT Science & Engineering News"),
+    ("harvard", "Harvard University Research Publications"),
+    ("stanford", "Stanford University Research"),
+    ("snopes", "Snopes Fact Check Registry"),
+    ("politifact", "PolitiFact Truth-O-Meter")
 ]
 
 def analyze_domain_knowledge(text):
@@ -197,36 +234,51 @@ def predict(text):
             except Exception:
                 pass
 
-        # 3. Knowledge-Assisted Calibration
+        # 3. Knowledge-Assisted Calibration & Dynamic Risk Thresholding
         insts = knowledge.get("institutions", [])
         sensational = feats.get("sensationalismIndex", 0)
         urgency = feats.get("urgencyPanicLevel", 0)
         fear = feats.get("fearMongeringLevel", 0)
+        bias = feats.get("definitiveCertaintyBias", 0)
+        evidence = feats.get("factualNumericalDensity", 0)
         
         credibility_boost = 0.0
         if insts and sensational < 15 and urgency < 10 and fear < 10:
             # Significant institutional boost for authentic reports
-            credibility_boost += 0.35 + (0.10 * len(insts))
+            credibility_boost += 0.35 + (0.08 * len(insts))
             
         if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
             credibility_boost += 0.15
 
+        # Quantitative evidence boost for cited figures & clinical dates
+        if evidence >= 15 and sensational < 20 and fear < 10:
+            credibility_boost += 0.12
+
         # Objective reporting baseline: Factual, calm news with zero sensationalism or panic indicators
-        if sensational == 0 and urgency == 0 and fear == 0 and not knowledge.get("matchedHoax"):
-            credibility_boost += 0.28
+        if sensational == 0 and urgency == 0 and fear == 0 and bias == 0 and not knowledge.get("matchedHoax"):
+            credibility_boost += 0.25
 
         penalty = 0.0
         if sensational >= 30:
-            penalty += 0.25
+            penalty += 0.28
         if urgency >= 20:
             penalty += 0.25
         if fear >= 20:
+            penalty += 0.22
+        if bias >= 25:
             penalty += 0.20
             
         calibrated_real = max(0.02, min(0.98, prob_real + credibility_boost - penalty))
         calibrated_fake = 1.0 - calibrated_real
 
-        is_real = calibrated_real >= 0.50
+        # Dynamic Thresholding: Require higher evidence bar if sensationalism or urgency is present
+        decision_threshold = 0.50
+        if sensational >= 20 or urgency >= 15 or fear >= 15:
+            decision_threshold = 0.62
+        elif bias >= 20:
+            decision_threshold = 0.60
+
+        is_real = calibrated_real >= decision_threshold
         confidence = int(round(max(calibrated_real, calibrated_fake) * 100))
         prob_real = calibrated_real
         prob_fake = calibrated_fake
@@ -245,6 +297,16 @@ def predict(text):
     if feats.get("factualNumericalDensity", 0) > 10:
         feature_indicators.append(f"Numerical evidence density: {feats['factualNumericalDensity']}%")
 
+    forensic_metrics = {
+        "sensationalism": feats.get("sensationalismIndex", 0),
+        "urgency": feats.get("urgencyPanicLevel", 0),
+        "credibility": min(100, max(15, (feats.get("institutionalAttribution", 0) * 2) + (35 if is_real else 5))),
+        "evidenceDensity": feats.get("factualNumericalDensity", 0),
+        "fearLevel": feats.get("fearMongeringLevel", 0),
+        "biasLevel": feats.get("definitiveCertaintyBias", 0),
+        "corroboratedSources": knowledge.get("institutions", [])
+    }
+
     return {
         "success": True,
         "isReal": is_real,
@@ -254,6 +316,8 @@ def predict(text):
             "fake": round(prob_fake, 4)
         },
         "features": feats,
+        "forensicMetrics": forensic_metrics,
+        "corroboratedSources": knowledge.get("institutions", []),
         "topFeatureIndicators": feature_indicators,
         "warningSignals": signals,
         "keyFindings": findings,

@@ -51,7 +51,8 @@ class GeminiConfig {
             "generationConfig" => [
                 "temperature" => 0.1,
                 "topP" => 0.8,
-                "maxOutputTokens" => 1500
+                "maxOutputTokens" => 1500,
+                "responseMimeType" => "application/json"
             ]
         ];
         $jsonPayload = json_encode($payload);

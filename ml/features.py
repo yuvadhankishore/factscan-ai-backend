@@ -6,14 +6,37 @@ SENSATIONAL_WORDS = {
     "shocking", "miracle", "mind-blowing", "exposed", "secret", "unbelievable",
     "viral", "banned", "truth about", "breaking alert", "unreal", "magic",
     "cure overnight", "hidden truth", "insane", "you won't believe", "conspiracy",
-    "share before deleted", "bombshell", "forbidden", "illuminati", "coverup"
+    "share before deleted", "bombshell", "forbidden", "illuminati", "coverup",
+    "jaw-dropping", "mind-boggling", "astonishing", "staggering", "scandalous",
+    "nightmare", "apocalyptic", "cataclysmic", "game-changer", "devastating",
+    "unprecedented disaster", "sinister", "plot exposed", "horrifying", "chilling"
 }
+
+CLICKBAIT_PATTERNS = [
+    r"\b(you\s+won'?t\s+believe(\s+what)?)\b",
+    r"\b(what\s+happens\s+next(\s+will)?)\b",
+    r"\b(blows?\s+your\s+mind|jaw[- ]dropping)\b",
+    r"\b(secret\s+(they|doctors|government)\s+(don'?t|won'?t)\s+want\s+you\s+to\s+know)\b",
+    r"\b(mainstream\s+media\s+(won'?t|refuses\s+to)\s+(show|tell))\b",
+    r"\b(before\s+it'?s\s+(taken\s+down|banned|deleted))\b",
+    r"\b(this\s+one\s+(simple\s+)?trick)\b",
+    r"\b(number\s+\d+\s+will\s+(shock|amaze)\s+you)\b",
+    r"\b(everyone\s+is\s+talking\s+about|breaks?\s+the\s+internet)\b",
+    r"\b(shocking\s+(truth|revelation|discovery|footage|secret|leak))\b",
+    r"\b(the\s+real\s+reason\s+behind)\b",
+    r"\b(what\s+they\s+are\s+hiding\s+from\s+you)\b"
+]
 
 URGENCY_PHRASES = [
     "forward this", "share before deleted", "warn everyone", "urgent alert",
     "immediate action", "don't ignore", "hurry up", "emergency warning",
     "forward to", "spread this", "alert your family", "share with 50", "share with 20",
-    "forward immediately", "share immediately", "tell everyone you know"
+    "forward immediately", "share immediately", "tell everyone you know",
+    "act fast", "before it's too late", "forward to all your contacts",
+    "send to everyone you love", "last warning", "final chance", "broadcast this",
+    "please circulate", "red alert", "high alert issued", "national emergency declared",
+    "spread to save lives", "time is running out", "take immediate action",
+    "protect your family now", "alert everyone right now"
 ]
 
 ATTRIBUTION_TERMS = {
@@ -48,13 +71,40 @@ VAGUE_SPECULATION = [
 FEAR_MONGERING_TERMS = {
     "deadly", "lethal", "catastrophic", "toxic", "poison", "fatal",
     "apocalypse", "wipe out", "doom", "destroy", "perish", "devastating",
-    "extinction", "biohazard", "emergency shutdown", "bioweapon"
+    "extinction", "biohazard", "emergency shutdown", "bioweapon",
+    "carnage", "annihilation", "mass casualty", "bio-terror", "silent killer",
+    "depopulation", "genocide", "sudden death", "fatal pathogen", "radiation poisoning",
+    "flesh-eating", "contaminated water", "death toll soaring", "lethal hazard"
 }
+
+QUANTITATIVE_EVIDENCE_PATTERNS = [
+    r"\b(\$|€|£|₹|usd|inr|eur)\s?\d+([\d,.]*\d+)?\b",
+    r"\b\d+([\d,.]*\d+)?\s*(billion|million|trillion|crore|lakh)\b",
+    r"\b\d+(\.\d+)?%\b|\b\d+(\.\d+)?\s*percent\b",
+    r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{4}\b",
+    r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+    r"\b(20[0-2][0-9])\b",
+    r"\b(phase\s+[i|ii|iii|iv|1|2|3|4]\s+trials?|clinical\s+trials?)\b",
+    r"\b(sample\s+size\s+of|cohort\s+of|\bn\s*=\s*\d+)\b",
+    r"\b(section\s+\d+[a-z]?|article\s+\d+|act\s+of\s+\d{4}|resolution\s+\d+)\b"
+]
 
 DEFINITIVE_BIAS_PHRASES = [
     "100 percent", "guaranteed", "proven fact", "undeniable", "permanent cure",
     "miracle remedy", "secret revealed", "totally destroys", "miracle juice",
     "doctors don't want you to know", "cure all", "100% cure"
+]
+
+PSEUDOSCIENCE_PATTERNS = [
+    r"\b(alkaline\s+(diet|water)\s+(cures?|prevents?)\s+cancer)\b",
+    r"\b(miracle\s+mineral\s+solution|mms\s+protocol)\b",
+    r"\b(detox\s+(pads?|patches?|tea)\s+(extracts?|flushes?)\s+toxins?)\b",
+    r"\b(anti[- ]5g\s+(quantum|radiation)\s+(shield|device|pendant))\b",
+    r"\b(pure\s+lemon\s+kills\s+cancer\s+cells\s+\d+\s+times)\b",
+    r"\b(reverse[sd]?\s+(diabetes|grey\s+hair|baldness)\s+in\s+\d+\s+(days?|hours?))\b",
+    r"\b(vaccin(e|es|ation)\s+(alters?|modifies?)\s+(human\s+)?dna)\b",
+    r"\b(quantum\s+frequency\s+(healing|medicine|cure))\b",
+    r"\b(big\s+pharma\s+(conspiracy|hiding\s+the\s+cure))\b"
 ]
 
 class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
@@ -74,9 +124,10 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         words = re.findall(r'\b\w+\b', text_lower)
         total_words = max(len(words), 1)
 
-        # 0. Sensationalism Score
+        # 0. Sensationalism & Clickbait Score
         sensational_count = sum(1 for w in words if w in SENSATIONAL_WORDS)
-        sensational_score = min(1.0, (sensational_count / total_words) * 10)
+        clickbait_matches = sum(1 for pat in CLICKBAIT_PATTERNS if re.search(pat, text_lower))
+        sensational_score = min(1.0, ((sensational_count / total_words) * 10) + (clickbait_matches * 0.35))
 
         # 1. Urgency / Viral Forward Score
         urgency_count = sum(1 for phrase in URGENCY_PHRASES if phrase in text_lower)
@@ -100,9 +151,10 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         punct_count = len(re.findall(r'[!?]{1,}', text_str))
         punct_density = min(1.0, punct_count / total_words)
 
-        # 6. Numerical & Statistical Density
+        # 6. Numerical & Statistical Evidence Density
         numbers = re.findall(r'\b\d+(?:\.\d+)?%?\b', text_str)
-        num_density = min(1.0, len(numbers) / total_words)
+        quant_matches = sum(1 for pat in QUANTITATIVE_EVIDENCE_PATTERNS if re.search(pat, text_lower))
+        num_density = min(1.0, (len(numbers) / total_words) + (quant_matches * 0.15))
 
         # 7. Lexical Diversity (Type-Token Ratio)
         lex_div = len(set(words)) / total_words
@@ -119,9 +171,10 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         fear_count = sum(1 for w in words if w in FEAR_MONGERING_TERMS)
         fear_score = min(1.0, (fear_count / total_words) * 8)
 
-        # 11. Absolute Definitive Certainty Bias
+        # 11. Absolute Definitive Certainty Bias & Medical Pseudoscience Score
         bias_count = sum(1 for phrase in DEFINITIVE_BIAS_PHRASES if phrase in text_lower)
-        bias_score = min(1.0, bias_count * 0.35)
+        pseudo_count = sum(1 for pat in PSEUDOSCIENCE_PATTERNS if re.search(pat, text_lower))
+        bias_score = min(1.0, (bias_count * 0.35) + (pseudo_count * 0.45))
 
         return [
             sensational_score,
