@@ -118,7 +118,14 @@ CREDIBLE_INSTITUTIONS = [
     ("cisa", "CISA (Cybersecurity & Infrastructure Security Agency)"),
     ("nist", "NIST (National Institute of Standards and Technology)"),
     ("wmo", "WMO (World Meteorological Organization)"),
-    ("ipcc", "IPCC (Intergovernmental Panel on Climate Change)")
+    ("ipcc", "IPCC (Intergovernmental Panel on Climate Change)"),
+    ("full fact", "Full Fact Independent Verification"),
+    ("factcheck.org", "FactCheck.org (Annenberg Center)"),
+    ("lead stories", "Lead Stories Verification Bureau"),
+    ("afp factuel", "AFP Fact Check Global"),
+    ("check your fact", "Check Your Fact Investigative Desk"),
+    ("boom live", "BOOM FactCheck Bureau"),
+    ("alt news", "Alt News Verification Desk")
 ]
 
 def analyze_domain_knowledge(text):
