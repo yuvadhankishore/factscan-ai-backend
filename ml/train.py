@@ -15,7 +15,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import FeatureUnion, Pipeline
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, PassiveAggressiveClassifier
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.naive_bayes import ComplementNB
@@ -142,7 +142,8 @@ def train(data_path, output_dir):
     print("\n[*] Constructing Advanced Soft-Voting Ensemble Classifier:")
     print("    |-- Model A: Calibrated Linear Support Vector Classifier (LinearSVC with Platt Scaling, weight=2)")
     print("    |-- Model B: Balanced L2-Regularized Logistic Regression (C=2.5, weight=2)")
-    print("    \\-- Model C: Complement Naive Bayes (alpha=0.4, weight=1)")
+    print("    |-- Model C: Complement Naive Bayes (alpha=0.4, weight=1)")
+    print("    \\-- Model D: Calibrated Passive-Aggressive Classifier (C=0.5 with Platt Scaling, weight=2)")
 
     model_svc = CalibratedClassifierCV(
         estimator=LinearSVC(C=1.2, max_iter=2500, random_state=42),
@@ -155,15 +156,20 @@ def train(data_path, output_dir):
         random_state=42
     )
     model_cnb = ComplementNB(alpha=0.4, norm=True)
+    model_pac = CalibratedClassifierCV(
+        estimator=PassiveAggressiveClassifier(C=0.5, max_iter=2000, random_state=42),
+        cv=3
+    )
 
     ensemble = VotingClassifier(
         estimators=[
             ('svc', model_svc),
             ('lr', model_lr),
-            ('cnb', model_cnb)
+            ('cnb', model_cnb),
+            ('pac', model_pac)
         ],
         voting='soft',
-        weights=[2, 2, 1]
+        weights=[2, 2, 1, 2]
     )
 
     pipeline = Pipeline([
