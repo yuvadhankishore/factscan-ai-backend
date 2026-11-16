@@ -234,36 +234,51 @@ def predict(text):
             except Exception:
                 pass
 
-        # 3. Knowledge-Assisted Calibration
+        # 3. Knowledge-Assisted Calibration & Dynamic Risk Thresholding
         insts = knowledge.get("institutions", [])
         sensational = feats.get("sensationalismIndex", 0)
         urgency = feats.get("urgencyPanicLevel", 0)
         fear = feats.get("fearMongeringLevel", 0)
+        bias = feats.get("definitiveCertaintyBias", 0)
+        evidence = feats.get("factualNumericalDensity", 0)
         
         credibility_boost = 0.0
         if insts and sensational < 15 and urgency < 10 and fear < 10:
             # Significant institutional boost for authentic reports
-            credibility_boost += 0.35 + (0.10 * len(insts))
+            credibility_boost += 0.35 + (0.08 * len(insts))
             
         if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
             credibility_boost += 0.15
 
+        # Quantitative evidence boost for cited figures & clinical dates
+        if evidence >= 15 and sensational < 20 and fear < 10:
+            credibility_boost += 0.12
+
         # Objective reporting baseline: Factual, calm news with zero sensationalism or panic indicators
-        if sensational == 0 and urgency == 0 and fear == 0 and not knowledge.get("matchedHoax"):
-            credibility_boost += 0.28
+        if sensational == 0 and urgency == 0 and fear == 0 and bias == 0 and not knowledge.get("matchedHoax"):
+            credibility_boost += 0.25
 
         penalty = 0.0
         if sensational >= 30:
-            penalty += 0.25
+            penalty += 0.28
         if urgency >= 20:
             penalty += 0.25
         if fear >= 20:
+            penalty += 0.22
+        if bias >= 25:
             penalty += 0.20
             
         calibrated_real = max(0.02, min(0.98, prob_real + credibility_boost - penalty))
         calibrated_fake = 1.0 - calibrated_real
 
-        is_real = calibrated_real >= 0.50
+        # Dynamic Thresholding: Require higher evidence bar if sensationalism or urgency is present
+        decision_threshold = 0.50
+        if sensational >= 20 or urgency >= 15 or fear >= 15:
+            decision_threshold = 0.62
+        elif bias >= 20:
+            decision_threshold = 0.60
+
+        is_real = calibrated_real >= decision_threshold
         confidence = int(round(max(calibrated_real, calibrated_fake) * 100))
         prob_real = calibrated_real
         prob_fake = calibrated_fake
