@@ -31,7 +31,12 @@ URGENCY_PHRASES = [
     "forward this", "share before deleted", "warn everyone", "urgent alert",
     "immediate action", "don't ignore", "hurry up", "emergency warning",
     "forward to", "spread this", "alert your family", "share with 50", "share with 20",
-    "forward immediately", "share immediately", "tell everyone you know"
+    "forward immediately", "share immediately", "tell everyone you know",
+    "act fast", "before it's too late", "forward to all your contacts",
+    "send to everyone you love", "last warning", "final chance", "broadcast this",
+    "please circulate", "red alert", "high alert issued", "national emergency declared",
+    "spread to save lives", "time is running out", "take immediate action",
+    "protect your family now", "alert everyone right now"
 ]
 
 ATTRIBUTION_TERMS = {
@@ -66,7 +71,10 @@ VAGUE_SPECULATION = [
 FEAR_MONGERING_TERMS = {
     "deadly", "lethal", "catastrophic", "toxic", "poison", "fatal",
     "apocalypse", "wipe out", "doom", "destroy", "perish", "devastating",
-    "extinction", "biohazard", "emergency shutdown", "bioweapon"
+    "extinction", "biohazard", "emergency shutdown", "bioweapon",
+    "carnage", "annihilation", "mass casualty", "bio-terror", "silent killer",
+    "depopulation", "genocide", "sudden death", "fatal pathogen", "radiation poisoning",
+    "flesh-eating", "contaminated water", "death toll soaring", "lethal hazard"
 }
 
 DEFINITIVE_BIAS_PHRASES = [
