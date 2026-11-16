@@ -46,7 +46,8 @@ class OpenAiConfig {
             "model" => $model,
             "messages" => $messages,
             "temperature" => 0.1,
-            "max_tokens" => 1500
+            "max_tokens" => 1500,
+            "response_format" => ["type" => "json_object"]
         ];
 
         $ch = curl_init(self::API_URL);
