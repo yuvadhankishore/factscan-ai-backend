@@ -95,6 +95,94 @@ class GeminiConfig {
     }
 
     /**
+     * Multimodal Content Generation with Gemini 1.5 / 2.0 Flash
+     * Supports image screenshots, document scans, infographics, and audio
+     *
+     * @param string $prompt Verification instruction prompt
+     * @param string|null $base64Data Base64 encoded binary data (image/jpeg, image/png, application/pdf, audio/mp3)
+     * @param string|null $mimeType MIME type of the uploaded media
+     * @param string|null $apiKey Optional explicit API key
+     * @return string|null Generated JSON response text
+     */
+    public static function generateMultimodalContent(
+        string $prompt,
+        ?string $base64Data = null,
+        ?string $mimeType = null,
+        ?string $apiKey = null
+    ): ?string {
+        $key = self::getApiKey($apiKey);
+        if (empty($key)) {
+            return null;
+        }
+
+        $parts = [
+            ["text" => $prompt]
+        ];
+
+        if (!empty($base64Data)) {
+            // Strip data URL prefixes if present (e.g. data:image/png;base64,...)
+            $cleanBase64 = preg_replace('/^data:[^;]+;base64,/i', '', $base64Data);
+            $cleanMime = !empty($mimeType) ? strtolower(trim($mimeType)) : "image/jpeg";
+
+            $parts[] = [
+                "inlineData" => [
+                    "mimeType" => $cleanMime,
+                    "data" => $cleanBase64
+                ]
+            ];
+        }
+
+        $payload = [
+            "contents" => [
+                [
+                    "parts" => $parts
+                ]
+            ],
+            "generationConfig" => [
+                "temperature" => 0.1,
+                "topP" => 0.8,
+                "maxOutputTokens" => 2048,
+                "responseMimeType" => "application/json"
+            ]
+        ];
+        $jsonPayload = json_encode($payload);
+
+        foreach (self::MODELS as $modelName) {
+            $url = self::API_BASE_URL . $modelName . ":generateContent?key=" . urlencode($key);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Content-Type: application/json"
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 18);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                $text = $data["candidates"][0]["content"]["parts"][0]["text"] ?? null;
+                if (!empty($text)) {
+                    return $text;
+                }
+            } else {
+                error_log("Gemini Multimodal API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
+                if ($httpCode === 400 || $httpCode === 403) {
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Multi-Turn Conversational Chat with System Persona (ChatGPT / Gemini style)
      *
      * @param array $messages Array of ['role' => 'user'|'model'|'assistant', 'content' => '...']
