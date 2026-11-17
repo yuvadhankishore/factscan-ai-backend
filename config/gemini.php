@@ -178,6 +178,22 @@ class GeminiConfig {
         }
 
         return null;
+    public static function generateMultiSourceContent(string $claim, array $crossSources, ?string $apiKey = null): ?string {
+        $sourceText = "";
+        if (!empty($crossSources)) {
+            $sourceText = "\n\nCross-Referenced Live News Articles:\n";
+            foreach ($crossSources as $i => $art) {
+                $idx = $i + 1;
+                $t = $art["title"] ?? "";
+                $p = $art["publisher"] ?? "Wire Service";
+                $u = $art["url"] ?? "";
+                $s = $art["snippet"] ?? "";
+                $sourceText .= "$idx. [$p] $t ($u)\n   Snippet: $s\n";
+            }
+        }
+
+        $fullPrompt = "You are FactScan AI, an expert multi-source news verification agent. Evaluate this claim against the retrieved multi-source news articles:\n\"$claim\"\n$sourceText\nReturn clean JSON with verdict, isReal, confidence, keyFindings, and multi-source consensus.";
+        return self::generateContent($fullPrompt, $apiKey);
     }
 }
 ?>
