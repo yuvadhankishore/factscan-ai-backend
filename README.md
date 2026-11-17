@@ -36,3 +36,28 @@ FactScan AI features a next-generation, multi-source verification and entity tru
 - `GET  /factscanai_backend/api/trending.php` - Curated and dynamic trending claims with consensus stats.
 - `GET  /factscanai_backend/api/saved.php` - Bookmarked verifications with multi-source snapshots.
 - `POST /factscanai_backend/api/chat.php` - Contextual fact-checking AI chat assistant.
+```app/src/main/
+├── AndroidManifest.xml
+├── res/
+│   └── xml/
+│       └── network_security_config.xml
+└── java/com/factscanai/app/
+    ├── data/
+    │   ├── api/
+    │   │   ├── AuthApiService.kt
+    │   │   └── RetrofitClient.kt
+    │   ├── model/
+    │   │   ├── AuthModels.kt
+    │   │   └── ErrorResponse.kt
+    │   └── repository/
+    │       ├── AuthRepository.kt
+    │       └── AuthRepositoryImpl.kt
+    └── ui/
+        ├── auth/
+        │   ├── AuthUiState.kt
+        │   ├── AuthViewModel.kt
+        │   ├── LoginScreen.kt
+        │   └── SignupScreen.kt
+        └── theme/
+            ├── Color.kt
+            └── Theme.kt
