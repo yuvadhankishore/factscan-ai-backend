@@ -115,6 +115,5 @@ class MultiSourceBridge {
             "sources" => array_slice($res["crossSourceArticles"] ?? [], 0, $maxSources)
         ];
     }
-    }
 }
 ?>

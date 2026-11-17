@@ -3,6 +3,7 @@
 // Coordinates Google Gemini & OpenAI ChatGPT Agents with Fallback to Trained Neural Models
 
 require_once __DIR__ . "/gemini.php";
+require_once __DIR__ . "/gemini_reasoning_agent.php";
 require_once __DIR__ . "/openai.php";
 require_once __DIR__ . "/ai_keys.php";
 require_once __DIR__ . "/multi_source_bridge.php";
@@ -18,7 +19,9 @@ class AiAgentOrchestrator {
         string $type = "TEXT_CLAIM",
         ?array $parsedArticle = null,
         ?string $geminiKey = null,
-        ?string $openaiKey = null
+        ?string $openaiKey = null,
+        ?string $base64Media = null,
+        ?string $mimeType = null
     ): array {
         $activeGeminiKey = GeminiConfig::getApiKey($geminiKey);
         $activeOpenAiKey = OpenAiConfig::getApiKey($openaiKey);
@@ -26,16 +29,35 @@ class AiAgentOrchestrator {
         // Fetch live cross-source articles and consensus
         $claimQuery = ($type === "URL" && $parsedArticle) ? ($parsedArticle["title"] ?? $text) : $text;
 
-        // 0. Priority 0: Fast-Path Geopolitical & Entity Truth Verification via Python Bridge
+        // 0. Priority 0: Fast-Path Geopolitical, Medical, and Viral Rumor Verification via Python Bridge
         if ($type === "TEXT_CLAIM" && class_exists("PythonAiBridge")) {
             $entityResult = PythonAiBridge::predict($text);
-            if ($entityResult && in_array($entityResult["engine"] ?? "", ["geopolitical_entity_verifier", "entity_fact_checker"])) {
+            if ($entityResult && in_array($entityResult["engine"] ?? "", [
+                "geopolitical_entity_verifier",
+                "entity_fact_checker",
+                "geopolitical_truth_validator",
+                "gemini_scientific_verifier",
+                "gemini_viral_rumor_verifier"
+            ])) {
+                $entityResult["geminiReasoningEngine"] = $entityResult["engine"] ?? "gemini_truth_validator";
                 return $entityResult;
             }
         }
 
-        $crossSourceData = MultiSourceBridge::crossReferenceClaim($claimQuery);
+        // 1. Priority 1: Gemini Multimodal Reasoning Agent (Gemini 2.0 Flash / Pro)
+        $geminiResult = GeminiReasoningAgent::analyze(
+            $text,
+            $type,
+            $base64Media,
+            $mimeType,
+            $parsedArticle,
+            $activeGeminiKey
+        );
+        if (!empty($geminiResult) && isset($geminiResult["verdict"])) {
+            return $geminiResult;
+        }
 
+        $crossSourceData = MultiSourceBridge::crossReferenceClaim($claimQuery);
         $prompt = self::buildVerificationPrompt($text, $type, $parsedArticle);
 
         // 1. Priority 1: OpenAI ChatGPT Agent (if key is configured)
