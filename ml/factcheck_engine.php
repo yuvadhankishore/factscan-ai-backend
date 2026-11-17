@@ -168,6 +168,33 @@ class FactCheckEngine {
             }
         }
 
+        // Multi-paragraph document claim extraction and deep scanning
+        $extractedDocumentClaims = [];
+        if ($type === "DOCUMENT_UPLOAD" || strlen($textClean) > 280) {
+            $extractedDocumentClaims = self::extractKeyClaimsFromDocument($textClean);
+            foreach ($extractedDocumentClaims as $docClaim) {
+                $docClaimLower = strtolower($docClaim);
+                foreach ($medicalFakeTriggers as $pat) {
+                    if (strpos($docClaimLower, $pat) !== false && !$matchedFakeCategory) {
+                        $matchedFakeCategory = "Medical / Health Misinformation (Found in: \"$pat\")";
+                        break 2;
+                    }
+                }
+                foreach ($astronomyFakeTriggers as $pat) {
+                    if (strpos($docClaimLower, $pat) !== false && !$matchedFakeCategory) {
+                        $matchedFakeCategory = "Astronomical / Planetary Hoax (Found in: \"$pat\")";
+                        break 2;
+                    }
+                }
+                foreach ($scamFakeTriggers as $pat) {
+                    if (strpos($docClaimLower, $pat) !== false && !$matchedFakeCategory) {
+                        $matchedFakeCategory = "Financial / Phishing Scam (Found in: \"$pat\")";
+                        break 2;
+                    }
+                }
+            }
+        }
+
         // 2b. Geopolitical & Entity Truth Violations
         $matchedGeoError = null;
         if (preg_match('/\bindia\b.*\b(is\s+)?(a\s+)?(state|province|district)\b/i', $textClean) || (strpos($textLower, "india") !== false && strpos($textLower, "state") !== false && count($tokens) <= 4)) {
@@ -440,6 +467,46 @@ class FactCheckEngine {
             return mb_substr($truncated, 0, $lastSpace) . '...';
         }
         return $truncated . '...';
+    }
+
+    /**
+     * Extracts key assertions and factual statements from a multi-paragraph document
+     */
+    public static function extractKeyClaimsFromDocument(string $documentText): array
+    {
+        $paragraphs = preg_split('/(\r\n|\n|\r){2,}/', trim($documentText));
+        $claims = [];
+        $actionVerbs = '/\b(announced|confirmed|discovered|found|stated|revealed|reported|claimed|caused|proven|cured|developed|approved|passed|banned|elected|died|exploded|signed|declared|warned)\b/i';
+
+        foreach ($paragraphs as $para) {
+            $para = trim(preg_replace('/\s+/', ' ', $para));
+            if (mb_strlen($para) < 25) {
+                continue;
+            }
+            $sentences = preg_split('/(?<=[.!?])\s+/', $para);
+            foreach ($sentences as $s) {
+                $s = trim($s);
+                if (mb_strlen($s) >= 20 && mb_strlen($s) <= 220) {
+                    if (preg_match($actionVerbs, $s)) {
+                        $claims[] = $s;
+                    }
+                }
+            }
+        }
+
+        // If no action verbs matched, take the first 3 meaningful sentences
+        if (empty($claims)) {
+            $sentences = preg_split('/(?<=[.!?])\s+/', trim($documentText));
+            foreach ($sentences as $s) {
+                $s = trim($s);
+                if (mb_strlen($s) >= 20 && mb_strlen($s) <= 200) {
+                    $claims[] = $s;
+                    if (count($claims) >= 3) break;
+                }
+            }
+        }
+
+        return array_slice(array_unique($claims), 0, 5);
     }
 
     /**
