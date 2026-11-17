@@ -10,6 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
 }
 
 require_once __DIR__ . "/../config/multi_source_bridge.php";
+require_once __DIR__ . "/../config/ai_bridge.php";
 
 $rawInput = file_get_contents("php://input");
 $data = json_decode($rawInput, true);
@@ -40,12 +41,25 @@ if (empty($claim)) {
 
 try {
     $crossCheckResult = MultiSourceBridge::crossCheck($claim, $maxSources);
+    $entityAudit = null;
+    if (class_exists("PythonAiBridge")) {
+        $pred = PythonAiBridge::predict($claim);
+        if ($pred && in_array($pred["engine"] ?? "", ["geopolitical_entity_verifier", "entity_fact_checker"])) {
+            $entityAudit = [
+                "isContradiction" => true,
+                "engine" => $pred["engine"],
+                "summary" => $pred["summary"],
+                "headline" => $pred["headline"]
+            ];
+        }
+    }
     
     http_response_code(200);
     echo json_encode([
         "success" => true,
         "timestamp" => date("c"),
         "claim" => $claim,
+        "entityFactAudit" => $entityAudit,
         "multiSourceConsensus" => $crossCheckResult["consensus"] ?? [
             "consensusScore" => 75.0,
             "corroboratingCount" => 1,
@@ -65,3 +79,4 @@ try {
     ]);
 }
 ?>
+
