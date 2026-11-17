@@ -19,6 +19,7 @@ from data_medicine import MEDICINE_CORPUS
 from data_astronomy import ASTRONOMY_CORPUS
 from data_finance import FINANCE_CORPUS
 from data_tech import TECH_CORPUS
+from data_contemporary import CONTEMPORARY_CORPUS
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
@@ -26,7 +27,15 @@ def compile_dataset():
     all_new_records = []
     
     # Add domain corpora
-    for corpus in [GEOPOLITICAL_CORPUS, MEDICINE_CORPUS, ASTRONOMY_CORPUS, FINANCE_CORPUS, TECH_CORPUS]:
+    corpora = [
+        GEOPOLITICAL_CORPUS,
+        MEDICINE_CORPUS,
+        ASTRONOMY_CORPUS,
+        FINANCE_CORPUS,
+        TECH_CORPUS,
+        CONTEMPORARY_CORPUS
+    ]
+    for corpus in corpora:
         for title, text, label in corpus:
             all_new_records.append({
                 "title": title.strip(),
