@@ -194,7 +194,29 @@ class GeminiConfig {
             }
         }
 
-        $fullPrompt = "You are FactScan AI, an expert multi-source news verification agent. Evaluate this claim against the retrieved multi-source news articles:\n\"$claim\"\n$sourceText\nReturn clean JSON with verdict, isReal, confidence, keyFindings, and multi-source consensus.";
+        $fullPrompt = <<<PROMPT
+You are FactScan AI, an expert multi-source news and factual truth verification agent.
+Your objective is to strictly analyze the claim against verified world geography, political science, history, scientific consensus, and the retrieved live news sources.
+
+IMPORTANT FACT-CHECKING RULES:
+1. GEOPOLITICAL & ENTITY TRUTH: Strictly audit if sovereign entities, geographic classifications, or titles are misstated (e.g., claiming "India is a state", "Paris is a country", or "Africa is a country" must be classified as FAKE with 98%+ confidence, explaining that India is a sovereign nation containing 28 states and 8 union territories, not a state).
+2. FACTUAL VERACITY: If the assertion is factually incorrect, misleading, or contradicted by established global records, set "isReal": false and "verdict": "FAKE". Only set "isReal": true if the proposition is genuinely true.
+3. OUTPUT FORMAT: Return ONLY pure, parseable JSON with no conversational preamble:
+{
+  "verdict": "REAL" or "FAKE",
+  "isReal": true or false,
+  "confidence": 90,
+  "headline": "Clear descriptive title of the fact check",
+  "summary": "Accurate 2-3 sentence explanation with verifiable real-world facts",
+  "keyFindings": ["Key fact 1", "Key fact 2", "Key fact 3"],
+  "warningSignals": ["Factual error or consistency signal"],
+  "verifiedSources": ["Official institution 1", "Accredited registry 2"]
+}
+
+Claim to analyze:
+"$claim"
+$sourceText
+PROMPT;
         return self::generateContent($fullPrompt, $apiKey);
     }
 }
