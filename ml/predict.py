@@ -32,6 +32,18 @@ from viral_rumor_verifier import check_viral_rumors
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
 
+_CACHED_PIPELINE = None
+
+def get_pipeline():
+    global _CACHED_PIPELINE
+    if _CACHED_PIPELINE is None and os.path.exists(MODEL_PATH):
+        try:
+            import joblib
+            _CACHED_PIPELINE = joblib.load(MODEL_PATH)
+        except Exception:
+            _CACHED_PIPELINE = None
+    return _CACHED_PIPELINE
+
 # Documented viral disinformation patterns
 VIRAL_HOAX_REGISTRY = [
     # Medical Hoaxes
@@ -510,12 +522,9 @@ def predict(text, check_cross_sources=True):
         # 2. Machine Learning Pipeline Inference
         prob_real = 0.50
         prob_fake = 0.50
-        has_model = os.path.exists(MODEL_PATH)
-
-        if has_model:
+        pipeline = get_pipeline()
+        if pipeline is not None:
             try:
-                import joblib
-                pipeline = joblib.load(MODEL_PATH)
                 proba = pipeline.predict_proba([cleaned_text])[0]
                 prob_fake = float(proba[0])
                 prob_real = float(proba[1])
@@ -529,12 +538,17 @@ def predict(text, check_cross_sources=True):
         fear = feats.get("fearMongeringLevel", 0)
         bias = feats.get("definitiveCertaintyBias", 0)
         evidence = feats.get("factualNumericalDensity", 0)
+        epistemic = feats.get("epistemicModality", 0)
+        viral_cta = feats.get("viralCtaDensity", 0)
         
         credibility_boost = 0.0
         if insts and sensational < 15 and urgency < 10 and fear < 10:
             credibility_boost += 0.35 + (0.08 * len(insts))
             
         if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
+            credibility_boost += 0.15
+
+        if epistemic >= 20 and sensational < 15:
             credibility_boost += 0.15
 
         if consensus_result.get("verdict") == "STRONGLY_CORROBORATED":
@@ -557,12 +571,14 @@ def predict(text, check_cross_sources=True):
             penalty += 0.22
         if bias >= 25:
             penalty += 0.20
+        if viral_cta >= 15:
+            penalty += 0.22
             
         calibrated_real = max(0.02, min(0.98, prob_real + credibility_boost - penalty))
         calibrated_fake = 1.0 - calibrated_real
 
         decision_threshold = 0.50
-        if sensational >= 20 or urgency >= 15 or fear >= 15:
+        if sensational >= 20 or urgency >= 15 or fear >= 15 or viral_cta >= 15:
             decision_threshold = 0.62
         elif bias >= 20:
             decision_threshold = 0.60
@@ -585,6 +601,10 @@ def predict(text, check_cross_sources=True):
         feature_indicators.append(f"Institutional credibility: {feats['institutionalAttribution']}% (Corroborated)")
     if feats.get("factualNumericalDensity", 0) > 10:
         feature_indicators.append(f"Numerical evidence density: {feats['factualNumericalDensity']}%")
+    if feats.get("epistemicModality", 0) > 20:
+        feature_indicators.append(f"Epistemic modality: {feats['epistemicModality']}% (Measured Journalistic Tone)")
+    if feats.get("viralCtaDensity", 0) > 15:
+        feature_indicators.append(f"Viral call-to-action pressure: {feats['viralCtaDensity']}% (High)")
 
     forensic_metrics = {
         "sensationalism": feats.get("sensationalismIndex", 0),
@@ -593,6 +613,8 @@ def predict(text, check_cross_sources=True):
         "evidenceDensity": feats.get("factualNumericalDensity", 0),
         "fearLevel": feats.get("fearMongeringLevel", 0),
         "biasLevel": feats.get("definitiveCertaintyBias", 0),
+        "epistemicModality": feats.get("epistemicModality", 0),
+        "viralCtaDensity": feats.get("viralCtaDensity", 0),
         "corroboratedSources": knowledge.get("institutions", [])
     }
 
