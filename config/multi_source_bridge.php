@@ -2,6 +2,8 @@
 // FactScan AI - Multi-Source Web Cross-Reference Bridge
 // Connects PHP API endpoints to Python Multi-Source Aggregator & Consensus Engine
 
+require_once __DIR__ . "/multi_source_cache.php";
+
 class MultiSourceBridge {
     const ML_SERVICE_URL = "http://127.0.0.1:5000/cross_check";
     const TIMEOUT_SECONDS = 6;
@@ -10,6 +12,12 @@ class MultiSourceBridge {
      * Queries multi-source news engine for external corroboration articles and consensus score.
      */
     public static function crossReferenceClaim(string $text): array {
+        // 0. Check cache first
+        $cached = MultiSourceCache::get($text);
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $payload = json_encode(["text" => $text]);
 
         // 1. Try Flask microservice endpoint
@@ -30,13 +38,15 @@ class MultiSourceBridge {
         if ($httpCode === 200 && $response) {
             $data = json_decode($response, true);
             if (is_array($data) && !empty($data["success"])) {
-                return [
+                $res = [
                     "consensus" => $data["consensus"] ?? [],
                     "crossSourceArticles" => $data["crossSourceArticles"] ?? [],
                     "atomicClaims" => $data["atomicClaims"] ?? [],
                     "quotationAudit" => $data["quotationAudit"] ?? [],
                     "temporalAudit" => $data["temporalAudit"] ?? []
                 ];
+                MultiSourceCache::set($text, $res);
+                return $res;
             }
         }
 
@@ -62,19 +72,21 @@ class MultiSourceBridge {
 
                 $parsed = json_decode($output, true);
                 if (is_array($parsed) && !empty($parsed["success"])) {
-                    return [
+                    $res = [
                         "consensus" => $parsed["multiSourceConsensus"] ?? [],
                         "crossSourceArticles" => $parsed["crossSourceArticles"] ?? [],
                         "atomicClaims" => $parsed["atomicClaims"] ?? [],
                         "quotationAudit" => $parsed["quotationAudit"] ?? [],
                         "temporalAudit" => $parsed["temporalAudit"] ?? []
                     ];
+                    MultiSourceCache::set($text, $res);
+                    return $res;
                 }
             }
         }
 
         // 3. Simulated neutral baseline fallback
-        return [
+        $fallback = [
             "consensus" => [
                 "totalSources" => 0,
                 "corroboratingCount" => 0,
@@ -90,6 +102,19 @@ class MultiSourceBridge {
             "quotationAudit" => ["attributionStatus" => "NO_ATTRIBUTED_QUOTES"],
             "temporalAudit" => ["isRecycledOldNews" => false]
         ];
+        return $fallback;
+    }
+
+    /**
+     * Cross check alias method
+     */
+    public static function crossCheck(string $text, int $maxSources = 6): array {
+        $res = self::crossReferenceClaim($text);
+        return [
+            "consensus" => $res["consensus"] ?? [],
+            "sources" => array_slice($res["crossSourceArticles"] ?? [], 0, $maxSources)
+        ];
+    }
     }
 }
 ?>
