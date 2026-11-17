@@ -80,7 +80,7 @@ VIRAL_HOAX_REGISTRY = [
     (r"\b(drinking\s+(hot\s+water|boiled\s+ginger|warm\s+lemon)\s+kills\s+(all\s+)?viruses?)\b", "Unfounded medical home remedy falsely claiming viral elimination", "Medical"),
     (r"\b(drinking\s+water\s+from\s+plastic\s+bottles?\s+in\s+cars?\s+causes\s+cancer)\b", "Recurrent social media chemical scare dismissed by oncology registries", "Medical"),
     (r"\b(chemtrails?\s+(poisoning|spraying|mind\s+control|weather\s+weapon))\b", "Long-standing aerosol conspiracy debunked by atmospheric scientists", "Environment"),
-    (r"\b(flat\s+earth|ice\s+wall\s+at\s+antarctica|antarctic\s+dome)\b", "Disproven flat-earth pseudo-geography contrary to satellite geodesy", "Science"),
+    (r"\b(flat\s+earth|(antarcti[ca]|polar)\s+ice\s+wall|ice\s+wall\s+(at|around|in)?\s*antarctica|antarctic\s+dome)\b", "Disproven flat-earth pseudo-geography contrary to satellite geodesy", "Science"),
     (r"\b(mars\s+will\s+look\s+as\s+big\s+as\s+the\s+full\s+moon)\b", "Annual astronomical scale hoax regarding Martian optical size", "Astronomy"),
     (r"\b(government\s+(installing|mandating)\s+microphones?\s+in\s+light\s+bulbs)\b", "Surveillance conspiracy narrative without evidentiary basis", "Conspiracy")
 ]
@@ -542,13 +542,14 @@ def predict(text, check_cross_sources=True):
         viral_cta = feats.get("viralCtaDensity", 0)
         
         credibility_boost = 0.0
-        if insts and sensational < 15 and urgency < 10 and fear < 10:
+        has_conspiracy_leaks = bool(re.search(r"\b(leaked\s+classified|admits?\s+in\s+deathbed|whistleblowers?\s+leaked?|secret\s+coverup)\b", cleaned_text, re.IGNORECASE))
+        if insts and sensational < 15 and urgency < 10 and fear < 10 and not has_conspiracy_leaks:
             credibility_boost += 0.35 + (0.08 * len(insts))
             
-        if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
+        if feats.get("institutionalAttribution", 0) > 20 and sensational < 15 and not has_conspiracy_leaks:
             credibility_boost += 0.15
 
-        if epistemic >= 20 and sensational < 15:
+        if epistemic >= 20 and sensational < 15 and not has_conspiracy_leaks:
             credibility_boost += 0.15
 
         if consensus_result.get("verdict") == "STRONGLY_CORROBORATED":
