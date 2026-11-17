@@ -91,8 +91,27 @@ class OpenAiConfig {
             }
         }
 
-        $systemPrompt = "You are FactScan AI, an expert multi-source investigative news analyst. Evaluate the claim against the retrieved multi-source web articles and global reporting consensus. Return pure JSON.";
-        $userPrompt = "Claim to verify:\n\"$claim\"\n$sourceText\nDetermine if REAL or FAKE based on the cross-referenced reporting.";
+        $systemPrompt = "You are FactScan AI, an expert multi-source investigative fact-checking agent. Your duty is to strictly audit claims against real-world geography, sovereign status, scientific facts, and news wire consensus. Return ONLY pure JSON matching the requested schema.";
+        $userPrompt = <<<EOT
+Analyze this claim against established world facts and the cross-referenced live news articles:
+"$claim"
+$sourceText
+
+STRICT TRUTH AUDIT:
+- Verify sovereign, geographic, and scientific accuracy (e.g. if someone asserts "India is a state", mark FAKE/FALSE with 98% confidence, because India is a sovereign country consisting of 28 states, not a state).
+- If the statement is false, set "isReal": false and "verdict": "FAKE".
+- Output JSON format:
+{
+  "verdict": "REAL" or "FAKE",
+  "isReal": true or false,
+  "confidence": 90,
+  "headline": "Clear descriptive headline",
+  "summary": "2-3 sentences explaining why it is true or false with verified facts",
+  "keyFindings": ["Fact 1", "Fact 2"],
+  "warningSignals": ["Discrepancy 1"],
+  "verifiedSources": ["Accredited Source 1"]
+}
+EOT;
 
         $messages = [
             ["role" => "system", "content" => $systemPrompt],

@@ -11,6 +11,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import concurrent.futures
 from typing import List, Dict, Any
+from wiki_verifier import WikipediaVerifier
 
 STOPWORDS = {
     "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
@@ -207,6 +208,29 @@ def fetch_and_enrich_articles_concurrently(articles: List[Dict[str, Any]], max_w
                 enriched.append(orig)
                 
     return enriched if enriched else articles
+
+def fetch_wikipedia_knowledge(claim_text: str) -> List[Dict[str, Any]]:
+    """
+    Looks up Wikipedia summary for primary entity in claim to provide encyclopedic context.
+    """
+    res = []
+    try:
+        wiki_audit = WikipediaVerifier.verify_against_wikipedia(claim_text)
+        if wiki_audit:
+            res.append({
+                "title": f"Wikipedia Encyclopedic Record: {wiki_audit.get('entity', 'Entity')}",
+                "url": wiki_audit.get("wikipediaUrl", "https://en.wikipedia.org"),
+                "domain": "wikipedia.org",
+                "publisher": "Wikipedia Encyclopedic Foundation",
+                "snippet": wiki_audit.get("summary", ""),
+                "stance": "REFUTES" if wiki_audit.get("isContradiction") else "CORROBORATES",
+                "similarity": 0.92,
+                "tier": "ACADEMIC_PEER_REVIEW",
+                "credibility": 95.0
+            })
+    except Exception:
+        pass
+    return res
 
 if __name__ == "__main__":
     sample = "NASA confirms James Webb Space Telescope observed oldest galaxy formed 13 billion years ago"

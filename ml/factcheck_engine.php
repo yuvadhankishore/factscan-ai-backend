@@ -1,6 +1,8 @@
 <?php
 // FactScan AI - Embedded Machine Learning & Document Verification Engine
 
+require_once __DIR__ . "/../config/ai_bridge.php";
+
 class FactCheckEngine {
     private static ?array $model = null;
     private static string $modelPath = __DIR__ . "/model/trained_classifier.json";
@@ -166,6 +168,41 @@ class FactCheckEngine {
             }
         }
 
+        // 2b. Geopolitical & Entity Truth Violations
+        $matchedGeoError = null;
+        if (preg_match('/\bindia\b.*\b(is\s+)?(a\s+)?(state|province|district)\b/i', $textClean) || (strpos($textLower, "india") !== false && strpos($textLower, "state") !== false && count($tokens) <= 4)) {
+            $matchedGeoError = [
+                "headline" => "Fact Check: India is a Sovereign Country, not a State",
+                "summary" => "India is an independent sovereign federal republic consisting of 28 states and 8 union territories. Asserting that India itself is a state is factually incorrect.",
+                "findings" => [
+                    "India is recognized by the United Nations as an independent sovereign nation.",
+                    "Administrative structure includes 28 states and 8 union territories.",
+                    "Constitution of India Article 1 declares India as a Union of States."
+                ],
+                "signals" => ["Factual entity classification error: India is a sovereign nation, not a state"]
+            ];
+        } elseif (preg_match('/\b(paris|london|tokyo|new york|beijing|mumbai)\b.*\b(is\s+)?(a\s+)?country\b/i', $textClean)) {
+            $matchedGeoError = [
+                "headline" => "Fact Check: Metropolitan City is not a Sovereign Country",
+                "summary" => "This entity is a major metropolitan city and capital, not an independent sovereign nation.",
+                "findings" => [
+                    "Classified as a city within a sovereign nation.",
+                    "Lacks sovereign statehood under international treaties."
+                ],
+                "signals" => ["Geographic classification error: city asserted as a country"]
+            ];
+        } elseif (preg_match('/\bafrica\b.*\b(is\s+)?(a\s+)?country\b/i', $textClean)) {
+            $matchedGeoError = [
+                "headline" => "Fact Check: Africa is a Continent, not a Country",
+                "summary" => "Africa is a continent consisting of 54 independent sovereign nations, not a single country.",
+                "findings" => [
+                    "Africa comprises 54 distinct sovereign nations.",
+                    "It is the world's second-largest continent by land area."
+                ],
+                "signals" => ["Geographical misconception: Africa is a continent"]
+            ];
+        }
+
         // 3. Python ML Inference (Multi-Branch Ensemble + Knowledge Calibration)
         $pythonResult = null;
         if (class_exists("PythonAiBridge")) {
@@ -181,7 +218,16 @@ class FactCheckEngine {
         $warningSignals = [];
         $engine = "factscan_ai_engine";
 
-        if ($isSatireDomain) {
+        if ($matchedGeoError !== null) {
+            $verdict = "FAKE";
+            $isReal = false;
+            $confidence = 99;
+            $headline = $matchedGeoError["headline"];
+            $summary = $matchedGeoError["summary"];
+            $keyFindings = $matchedGeoError["findings"];
+            $warningSignals = $matchedGeoError["signals"];
+            $engine = "geopolitical_truth_validator";
+        } elseif ($isSatireDomain) {
             $verdict = "FAKE";
             $isReal = false;
             $confidence = 98;

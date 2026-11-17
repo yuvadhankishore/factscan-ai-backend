@@ -7,12 +7,22 @@ Keeps the model and vectorizer in memory for sub-millisecond response times.
 
 from flask import Flask, request, jsonify
 from predict import predict
+from entity_fact_checker import EntityFactChecker
 
 app = Flask(__name__)
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "service": "FactScan AI ML Service"})
+
+@app.route("/entity_check", methods=["POST"])
+def handle_entity_check():
+    data = request.get_json(silent=True) or {}
+    text = data.get("text") or data.get("input") or data.get("claim") or ""
+    if not text:
+        return jsonify({"success": False, "message": "Field 'text' is required"}), 400
+    res = EntityFactChecker.verify_entity_claim(text)
+    return jsonify({"success": True, "match": res is not None, "result": res})
 
 @app.route("/predict", methods=["POST"])
 def handle_predict():

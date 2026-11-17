@@ -42,7 +42,18 @@ def analyze_article_stance(claim_text: str, article: Dict[str, Any]) -> Dict[str
     refute_matches = sum(1 for pat in REFUTATION_SIGNALS if re.search(pat, combined_art))
     corrob_matches = sum(1 for pat in CORROBORATION_SIGNALS if re.search(pat, combined_art))
 
-    if refute_matches > 0 and ("debunk" in combined_art or "false" in combined_art or "hoax" in combined_art):
+    # Check for entity classification contradictions (e.g. claim says 'state', article says 'country')
+    entity_contradiction = False
+    if "state" in claim_words and ("country" in art_words or "nation" in art_words or "sovereign" in art_words):
+        entity_contradiction = True
+    elif "country" in claim_words and ("city" in art_words or "capital" in art_words or "prefecture" in art_words):
+        entity_contradiction = True
+
+    if entity_contradiction and overlap_ratio >= 0.10:
+        stance = "REFUTES"
+        confidence = 95
+        explanation = "Article defines entity with a contradictory sovereign or geographic classification."
+    elif refute_matches > 0 and ("debunk" in combined_art or "false" in combined_art or "hoax" in combined_art):
         stance = "REFUTES"
         confidence = min(98, 75 + (refute_matches * 8))
         explanation = "Article explicitly debunks or reports this assertion as false/fabricated."
@@ -76,3 +87,4 @@ if __name__ == "__main__":
     art_real = {"title": "WHO announces childhood immunization guidelines", "snippet": "Official release confirms global vaccine expansion."}
     print("Debunk stance:", analyze_article_stance(claim, art_debunk))
     print("Real stance:", analyze_article_stance(claim, art_real))
+

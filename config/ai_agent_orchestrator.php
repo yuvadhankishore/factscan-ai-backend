@@ -25,6 +25,15 @@ class AiAgentOrchestrator {
 
         // Fetch live cross-source articles and consensus
         $claimQuery = ($type === "URL" && $parsedArticle) ? ($parsedArticle["title"] ?? $text) : $text;
+
+        // 0. Priority 0: Fast-Path Geopolitical & Entity Truth Verification via Python Bridge
+        if ($type === "TEXT_CLAIM" && class_exists("PythonAiBridge")) {
+            $entityResult = PythonAiBridge::predict($text);
+            if ($entityResult && in_array($entityResult["engine"] ?? "", ["geopolitical_entity_verifier", "entity_fact_checker"])) {
+                return $entityResult;
+            }
+        }
+
         $crossSourceData = MultiSourceBridge::crossReferenceClaim($claimQuery);
 
         $prompt = self::buildVerificationPrompt($text, $type, $parsedArticle);
