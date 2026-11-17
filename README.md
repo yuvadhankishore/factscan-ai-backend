@@ -36,28 +36,14 @@ FactScan AI features a next-generation, multi-source verification and entity tru
 - `GET  /factscanai_backend/api/trending.php` - Curated and dynamic trending claims with consensus stats.
 - `GET  /factscanai_backend/api/saved.php` - Bookmarked verifications with multi-source snapshots.
 - `POST /factscanai_backend/api/chat.php` - Contextual fact-checking AI chat assistant.
-```app/src/main/
-├── AndroidManifest.xml
-├── res/
-│   └── xml/
-│       └── network_security_config.xml
-└── java/com/factscanai/app/
-    ├── data/
-    │   ├── api/
-    │   │   ├── AuthApiService.kt
-    │   │   └── RetrofitClient.kt
-    │   ├── model/
-    │   │   ├── AuthModels.kt
-    │   │   └── ErrorResponse.kt
-    │   └── repository/
-    │       ├── AuthRepository.kt
-    │       └── AuthRepositoryImpl.kt
-    └── ui/
-        ├── auth/
-        │   ├── AuthUiState.kt
-        │   ├── AuthViewModel.kt
-        │   ├── LoginScreen.kt
-        │   └── SignupScreen.kt
-        └── theme/
-            ├── Color.kt
-            └── Theme.kt
+- `POST /factscanai_backend/api/gemini_analyze.php` - Dedicated Google Gemini 2.0 Flash multimodal news verification endpoint.
+
+## Gemini 2.0 All-Format News Verification Architecture
+
+FactScan AI features a unified Gemini-grade truth verification engine supporting all news ingestion formats:
+
+1. **Text Claims & Headlines**: Fast-path geopolitical validation (e.g. UN member state assertions), medical pseudoscience debunking (e.g. WHO cancer treatment registries), and viral rumor detection.
+2. **Web Article URLs**: Live article scraping, publisher credibility scoring, and consensus stance comparison against accredited wire services.
+3. **Documents & PDFs**: Automated text extraction from uploaded research briefs, whitepapers, or PDF releases.
+4. **Photos & Screenshots**: Google ML Kit OCR and Gemini multimodal vision inspection for WhatsApp forwards, doctored headlines, and fake screenshots.
+5. **Voice Notes & Audio**: Transcribed speech evaluation identifying synthetic audio claims and spoken misinformation.
