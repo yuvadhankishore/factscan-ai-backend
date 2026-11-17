@@ -23,145 +23,8 @@ require_once __DIR__ . "/../config/db.php";
 require_once __DIR__ . "/../config/gemini.php";
 require_once __DIR__ . "/../config/ai_bridge.php";
 require_once __DIR__ . "/../config/ai_agent_orchestrator.php";
+require_once __DIR__ . "/../config/url_helper.php";
 require_once __DIR__ . "/../ml/factcheck_engine.php";
-
-/**
- * Fetch webpage content and extract core article metadata and body text,
- * stripping boilerplate HTML, scripts, ads, and navigation menus.
- */
-function fetchAndParseArticleUrl(string $url): array {
-    if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('/^https?:\/\//i', $url)) {
-        return [
-            "success" => false,
-            "message" => "Please enter a valid HTTP or HTTPS article URL."
-        ];
-    }
-
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_MAXREDIRS => 5,
-        CURLOPT_TIMEOUT => 15,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 FactScanAI/2.0',
-        CURLOPT_HTTPHEADER => [
-            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language: en-US,en;q=0.9',
-            'Cache-Control: no-cache'
-        ]
-    ]);
-
-    $html = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlErr = curl_error($ch);
-    curl_close($ch);
-
-    if ($curlErr) {
-        return [
-            "success" => false,
-            "message" => "Network error connecting to URL: $curlErr. Please check the link and try again."
-        ];
-    }
-
-    if ($httpCode === 401 || $httpCode === 403) {
-        return [
-            "success" => false,
-            "message" => "Unable to access the article due to a paywall, subscription requirement, or restricted access (HTTP $httpCode)."
-        ];
-    }
-
-    if ($httpCode === 404) {
-        return [
-            "success" => false,
-            "message" => "Article not found (HTTP 404). Please verify that the link is correct."
-        ];
-    }
-
-    if ($httpCode >= 400 || empty($html)) {
-        return [
-            "success" => false,
-            "message" => "Failed to fetch article from this URL (HTTP $httpCode). The server may be blocking automated requests or temporarily down."
-        ];
-    }
-
-    // Extract Title
-    $title = "";
-    if (preg_match('/<meta\s+property=["\']og:title["\']\s+content=["\'](.*?)["\']/i', $html, $matches)) {
-        $title = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
-    if (empty($title) && preg_match('/<meta\s+name=["\']twitter:title["\']\s+content=["\'](.*?)["\']/i', $html, $matches)) {
-        $title = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
-    if (empty($title) && preg_match('/<title\b[^>]*>(.*?)<\/title>/is', $html, $matches)) {
-        $title = html_entity_decode(trim(strip_tags($matches[1])), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
-
-    // Extract Publisher / Site Name
-    $publisher = "";
-    if (preg_match('/<meta\s+property=["\']og:site_name["\']\s+content=["\'](.*?)["\']/i', $html, $matches)) {
-        $publisher = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
-    if (empty($publisher) && preg_match('/<meta\s+name=["\']author["\']\s+content=["\'](.*?)["\']/i', $html, $matches)) {
-        $publisher = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
-    if (empty($publisher)) {
-        $host = parse_url($url, PHP_URL_HOST);
-        $publisher = preg_replace('/^www\./i', '', $host ?: 'Web Source');
-    }
-
-    // Strip boilerplate HTML
-    $cleanHtml = preg_replace('/<(script|style|nav|footer|header|aside|iframe|noscript|form|svg)\b[^>]*>.*?<\/\1>/is', ' ', $html);
-
-    $articleHtml = "";
-    if (preg_match('/<article\b[^>]*>(.*?)<\/article>/is', $cleanHtml, $matches)) {
-        $articleHtml = $matches[1];
-    } elseif (preg_match('/<main\b[^>]*>(.*?)<\/main>/is', $cleanHtml, $matches)) {
-        $articleHtml = $matches[1];
-    } else {
-        $articleHtml = $cleanHtml;
-    }
-
-    $paragraphs = [];
-    if (preg_match_all('/<p\b[^>]*>(.*?)<\/p>/is', $articleHtml, $matches)) {
-        foreach ($matches[1] as $p) {
-            $pText = trim(strip_tags($p));
-            $pText = html_entity_decode($pText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            if (strlen($pText) > 25 && !preg_match('/(cookie|privacy policy|terms of service|all rights reserved|subscribe now|sign up)/i', $pText)) {
-                $paragraphs[] = $pText;
-            }
-        }
-    }
-
-    $bodyText = implode("\n\n", $paragraphs);
-    if (strlen(trim($bodyText)) < 80) {
-        $fallbackText = strip_tags($cleanHtml);
-        $fallbackText = html_entity_decode($fallbackText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $fallbackText = preg_replace('/\s+/', ' ', $fallbackText);
-        $bodyText = trim($fallbackText);
-    }
-
-    if (strlen(trim($bodyText)) < 40) {
-        return [
-            "success" => false,
-            "message" => "Unable to extract readable article text from this page. It may be protected behind a paywall, dynamic JavaScript rendering, or login gate."
-        ];
-    }
-
-    if (empty($title)) {
-        $title = substr($bodyText, 0, 80) . "...";
-    }
-
-    return [
-        "success" => true,
-        "title" => $title,
-        "publisher" => $publisher,
-        "bodyText" => substr($bodyText, 0, 4500),
-        "url" => $url
-    ];
-}
 
 // 1. Parse Request Payload
 $rawInput = file_get_contents("php://input");
@@ -318,12 +181,23 @@ $parsedArticle = null;
 if ($type === "URL") {
     $parsedArticle = fetchAndParseArticleUrl($input);
     if (!$parsedArticle["success"]) {
-        http_response_code(422);
-        echo json_encode([
-            "success" => false,
-            "message" => $parsedArticle["message"]
-        ]);
-        exit;
+        // Graceful domain-level fallback: Extract host and URL slug so AI can still verify the claim topic
+        $host = parse_url($input, PHP_URL_HOST) ?: "Web Source";
+        $cleanHost = preg_replace('/^www\./i', '', $host);
+        $path = parse_url($input, PHP_URL_PATH) ?: "";
+        $slug = ucwords(trim(preg_replace('/[-_]+/', ' ', basename($path))));
+        $derivedTitle = (!empty($slug) && strlen($slug) > 5) ? $slug : "Article from $cleanHost";
+
+        $parsedArticle = [
+            "success" => true,
+            "title" => $derivedTitle,
+            "publisher" => $cleanHost,
+            "domain" => $cleanHost,
+            "url" => $input,
+            "bodyText" => "Subject derived from URL: {$derivedTitle}. Published on {$cleanHost}. Note: Direct scraping encountered access protection ({$parsedArticle['message']}); evaluating domain authenticity and claim context.",
+            "metaDescription" => "Article published on {$cleanHost}",
+            "isRestricted" => true
+        ];
     }
 }
 

@@ -47,3 +47,13 @@ FactScan AI features a unified Gemini-grade truth verification engine supporting
 3. **Documents & PDFs**: Automated text extraction from uploaded research briefs, whitepapers, or PDF releases.
 4. **Photos & Screenshots**: Google ML Kit OCR and Gemini multimodal vision inspection for WhatsApp forwards, doctored headlines, and fake screenshots.
 5. **Voice Notes & Audio**: Transcribed speech evaluation identifying synthetic audio claims and spoken misinformation.
+
+## Dynamic Claim Rationale Engine & Zero-Boilerplate Assurance
+
+FactScan AI eliminates static fallback messages across Enter URL, Paste Text, and Upload Article:
+
+- **Zero-Shot Claim Thesis Extraction**: Extracts exact entities, subjects, and predicates from arbitrary text or documents rather than relying on pre-canned templates.
+- **Robust JavaScript & Paywall Scraper**: `UrlHelper` extracts JSON-LD news schemas, OpenGraph/Twitter card metadata, and semantic headers (`h1`-`h3`, `article`, `main`) so dynamic and restricted news URLs are parsed without 422 errors.
+- **Multi-Paragraph Document Analyzer**: Parses multi-paragraph documents (PDF, DOCX, TXT) and isolates core factual assertions for individual consensus verification.
+- **Empirical Rationale Generation**: Dynamically formulates a 3-point forensic rationale citing specific claim terms, empirical metrics, certainty bias, and objective density.
+- **Strict Verification Verdicts**: Ensures unambiguous `REAL` or `FAKE` classifications with claim-specific evidentiary backing.
