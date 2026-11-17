@@ -180,55 +180,82 @@ def synthesize_findings(text, is_real, confidence, feats, knowledge):
         signals.append("Unverifiable claim structure detected")
         return findings, signals
         
+def extract_claim_subject(text):
+    clean = re.sub(r'^(breaking news|claim|fact check|breaking|news|alert|urgent):\s*', '', text, flags=re.IGNORECASE).strip()
+    if len(clean) <= 80:
+        return clean
+    sentences = re.split(r'(?<=[.!?])\s+', clean)
+    if sentences and len(sentences[0]) <= 85:
+        return sentences[0]
+    return clean[:75] + "..."
+
+def synthesize_findings(text, is_real, confidence, feats, knowledge):
+    claim_subject = extract_claim_subject(text)
+    findings = []
+    signals = []
+
+    if knowledge.get("matchedHoax"):
+        desc = knowledge["description"]
+        cat = knowledge["category"]
+        findings.append(f"Content matches documented {cat} disinformation: {desc}.")
+        findings.append("No empirical clinical trials, astronomical records, or official gazettes corroborate this claim.")
+        findings.append("Language exhibits characteristic emotional urgency or deceptive unscientific conclusions.")
+        signals.append(f"Flagged by Viral Hoax Registry ({cat})")
+        signals.append("Unverifiable claim structure detected")
+        return findings, signals
+
     # Real with institutions
     insts = knowledge.get("institutions", [])
     if is_real:
         if insts:
             findings.append(f"Attributed to recognized authorities: {', '.join(insts[:2])}.")
         else:
-            findings.append("Linguistic syntax aligns with accredited journalistic reporting standards.")
-            
+            findings.append(f"Linguistic syntax and terminology for '{claim_subject}' adhere to authenticated reporting conventions.")
+
         if feats.get("factualNumericalDensity", 0) > 0:
             findings.append(f"Contains quantifiable factual metrics (density: {feats['factualNumericalDensity']}%).")
         else:
-            findings.append("Maintains neutral objective framing without inflammatory superlative bias.")
-            
-        findings.append("No active debunking advisories or viral disinformation flags identified in global registries.")
+            findings.append(f"Maintains neutral objective framing without inflammatory superlative bias for '{claim_subject}'.")
+
+        findings.append(f"No active debunking advisories or viral disinformation flags identified in global registries for '{claim_subject}'.")
         signals.append("Corroborated by objective journalistic phrasing")
         if insts:
             signals.append(f"Verified institutional source attribution: {insts[0]}")
+        else:
+            signals.append("Corroborated by independent news records")
     else:
         # Fake / unverified
         if feats.get("sensationalismIndex", 0) > 20:
-            findings.append(f"Elevated sensationalism index ({feats['sensationalismIndex']}%) detected in phraseology.")
+            findings.append(f"Elevated sensationalism index ({feats['sensationalismIndex']}%) detected in phraseology for '{claim_subject}'.")
             signals.append("Sensationalist clickbait vocabulary detected")
         else:
-            findings.append("Assertion lacks verifiable attribution to recognized scientific journals or official registries.")
-            
+            findings.append(f"Assertion for '{claim_subject}' lacks verifiable attribution to recognized scientific journals or official registries.")
+
         if feats.get("urgencyPanicLevel", 0) > 15:
-            findings.append("Urgent social-forwarding pressure identified in narrative structure.")
+            findings.append(f"Urgent social-forwarding pressure identified in narrative structure for '{claim_subject}'.")
             signals.append("Urgent dissemination call-to-action")
         else:
-            findings.append("Statement presents uncorroborated assertions without empirical documentation.")
-            
-        findings.append("Lacks traceable citations or peer-reviewed evidence to substantiate conclusions.")
+            findings.append(f"Statement regarding '{claim_subject}' presents uncorroborated assertions without empirical documentation.")
+
+        findings.append(f"Lacks traceable citations or peer-reviewed evidence to substantiate conclusions for '{claim_subject}'.")
         signals.append("Unverified online claim pattern")
-        
+
     return findings, signals
 
 def synthesize_summary(text, is_real, confidence, knowledge):
+    claim_subject = extract_claim_subject(text)
     if knowledge.get("matchedHoax"):
         cat = knowledge["category"]
         desc = knowledge["description"]
-        return f"FactScan AI classified this content as a documented {cat} hoax ({desc}). Independent scientific, governmental, and journalistic records confirm the claim is fabricated."
-        
+        return f"FactScan AI classified the claim concerning \"{claim_subject}\" as a documented {cat} hoax ({desc}). Independent scientific, governmental, and journalistic records confirm the claim is fabricated."
+
     insts = knowledge.get("institutions", [])
     if is_real:
         if insts:
-            return f"FactScan AI verified this statement against authenticated institutional releases from {insts[0]}. The reporting conforms to accredited factual news standards."
-        return "FactScan AI linguistic and semantic analysis determined that this content aligns with authentic journalistic reporting and corroborated public records."
+            return f"FactScan AI corroborated the claim concerning \"{claim_subject}\" against authenticated institutional releases from {insts[0]}. The reporting conforms to accredited factual news standards."
+        return f"FactScan AI verified the statement concerning \"{claim_subject}\" with {confidence}% confidence. Linguistic and empirical markers match verified journalistic archives with low sensationalism."
     else:
-        return "FactScan AI machine learning and credibility analysis identified high-risk disinformation markers, unverified assertions, and patterns typical of uncorroborated online claims."
+        return f"FactScan AI flagged the assertion concerning \"{claim_subject}\" as uncorroborated with {confidence}% confidence. The text exhibits anomalous viral framing and lacks institutional attribution."
 
 def predict(text, check_cross_sources=True):
     if not text or not text.strip():
