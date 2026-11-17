@@ -57,6 +57,23 @@ class MultiSourceCache {
         @file_put_contents($file, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
     }
 
+    public static function getEntity(string $entity): ?array {
+        self::init();
+        $key = md5("entity_" . strtolower(trim($entity)));
+        $file = self::$cacheDir . "ent_" . $key . ".json";
+        if (!file_exists($file)) return null;
+        $data = @json_decode(file_get_contents($file), true);
+        return $data["payload"] ?? null;
+    }
+
+    public static function setEntity(string $entity, array $payload): void {
+        self::init();
+        $key = md5("entity_" . strtolower(trim($entity)));
+        $file = self::$cacheDir . "ent_" . $key . ".json";
+        $data = ["entity" => $entity, "payload" => $payload, "cached_at" => time()];
+        @file_put_contents($file, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+
     public static function clearExpired(): int {
         self::init();
         $files = glob(self::$cacheDir . "ms_*.json");
@@ -76,3 +93,4 @@ class MultiSourceCache {
     }
 }
 ?>
+
