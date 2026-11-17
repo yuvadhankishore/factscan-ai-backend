@@ -181,12 +181,23 @@ $parsedArticle = null;
 if ($type === "URL") {
     $parsedArticle = fetchAndParseArticleUrl($input);
     if (!$parsedArticle["success"]) {
-        http_response_code(422);
-        echo json_encode([
-            "success" => false,
-            "message" => $parsedArticle["message"]
-        ]);
-        exit;
+        // Graceful domain-level fallback: Extract host and URL slug so AI can still verify the claim topic
+        $host = parse_url($input, PHP_URL_HOST) ?: "Web Source";
+        $cleanHost = preg_replace('/^www\./i', '', $host);
+        $path = parse_url($input, PHP_URL_PATH) ?: "";
+        $slug = ucwords(trim(preg_replace('/[-_]+/', ' ', basename($path))));
+        $derivedTitle = (!empty($slug) && strlen($slug) > 5) ? $slug : "Article from $cleanHost";
+
+        $parsedArticle = [
+            "success" => true,
+            "title" => $derivedTitle,
+            "publisher" => $cleanHost,
+            "domain" => $cleanHost,
+            "url" => $input,
+            "bodyText" => "Subject derived from URL: {$derivedTitle}. Published on {$cleanHost}. Note: Direct scraping encountered access protection ({$parsedArticle['message']}); evaluating domain authenticity and claim context.",
+            "metaDescription" => "Article published on {$cleanHost}",
+            "isRestricted" => true
+        ];
     }
 }
 
