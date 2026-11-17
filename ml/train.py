@@ -12,10 +12,11 @@ import joblib
 import pandas as pd
 import numpy as np
 
+import json
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import FeatureUnion, Pipeline
-from sklearn.linear_model import LogisticRegression, PassiveAggressiveClassifier
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.naive_bayes import ComplementNB
@@ -27,7 +28,8 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score,
     precision_score,
-    recall_score
+    recall_score,
+    brier_score_loss
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -141,23 +143,23 @@ def train(data_path, output_dir):
 
     print("\n[*] Constructing Advanced Soft-Voting Ensemble Classifier:")
     print("    |-- Model A: Calibrated Linear Support Vector Classifier (LinearSVC with Platt Scaling, weight=2)")
-    print("    |-- Model B: Balanced L2-Regularized Logistic Regression (C=2.5, weight=2)")
-    print("    |-- Model C: Complement Naive Bayes (alpha=0.4, weight=1)")
-    print("    \\-- Model D: Calibrated Passive-Aggressive Classifier (C=0.5 with Platt Scaling, weight=2)")
+    print("    |-- Model B: Balanced L2-Regularized Logistic Regression (C=3.0, weight=2)")
+    print("    |-- Model C: Complement Naive Bayes (alpha=0.3, weight=1)")
+    print("    \\-- Model D: Calibrated Stochastic Gradient Descent (SGDClassifier with modified huber, weight=2)")
 
     model_svc = CalibratedClassifierCV(
-        estimator=LinearSVC(C=1.2, max_iter=2500, random_state=42),
+        estimator=LinearSVC(C=1.0, max_iter=3000, random_state=42),
         cv=3
     )
     model_lr = LogisticRegression(
-        C=2.5,
-        max_iter=2000,
+        C=3.0,
+        max_iter=2500,
         class_weight="balanced",
         random_state=42
     )
-    model_cnb = ComplementNB(alpha=0.4, norm=True)
-    model_pac = CalibratedClassifierCV(
-        estimator=PassiveAggressiveClassifier(C=0.5, max_iter=2000, random_state=42),
+    model_cnb = ComplementNB(alpha=0.3, norm=True)
+    model_sgd = CalibratedClassifierCV(
+        estimator=SGDClassifier(loss='modified_huber', penalty='l2', alpha=1e-4, max_iter=2500, random_state=42),
         cv=3
     )
 
@@ -166,7 +168,7 @@ def train(data_path, output_dir):
             ('svc', model_svc),
             ('lr', model_lr),
             ('cnb', model_cnb),
-            ('pac', model_pac)
+            ('sgd', model_sgd)
         ],
         voting='soft',
         weights=[2, 2, 1, 2]
@@ -196,6 +198,7 @@ def train(data_path, output_dir):
     precision = precision_score(y_test, test_preds)
     recall = recall_score(y_test, test_preds)
     roc_auc = roc_auc_score(y_test, test_proba)
+    brier = brier_score_loss(y_test, test_proba)
     cm = confusion_matrix(y_test, test_preds)
 
     print("\n" + "=" * 60)
@@ -206,6 +209,7 @@ def train(data_path, output_dir):
     print(f"F1-Score (Harmonic Mean):    {f1 * 100:.2f}%")
     print(f"Precision:                   {precision * 100:.2f}%")
     print(f"Recall (Sensitivity):        {recall * 100:.2f}%")
+    print(f"Brier Calibration Loss:      {brier:.4f}")
     print("\nConfusion Matrix:")
     print(f"  True Negatives (Fake identified as Fake): {cm[0][0]}")
     print(f"  False Positives (Fake flagged as Real):   {cm[0][1]}")
@@ -220,6 +224,30 @@ def train(data_path, output_dir):
     joblib.dump(pipeline, pipeline_path, compress=3)
     print(f"\n[+] Successfully saved compressed advanced AI model pipeline to:")
     print(f"    --> {pipeline_path} ({os.path.getsize(pipeline_path) / 1024:.1f} KB)")
+
+    metrics_path = os.path.join(output_dir, "training_metrics.json")
+    metrics_data = {
+        "dataset_size": len(X),
+        "train_size": len(X_train),
+        "test_size": len(X_test),
+        "cv_accuracy_mean": round(float(cv_scores.mean() * 100), 2),
+        "cv_accuracy_std": round(float(cv_scores.std() * 100), 2),
+        "test_accuracy": round(float(acc * 100), 2),
+        "roc_auc": round(float(roc_auc * 100), 2),
+        "f1_score": round(float(f1 * 100), 2),
+        "precision": round(float(precision * 100), 2),
+        "recall": round(float(recall * 100), 2),
+        "brier_score": round(float(brier), 4),
+        "confusion_matrix": {
+            "true_negatives": int(cm[0][0]),
+            "false_positives": int(cm[0][1]),
+            "false_negatives": int(cm[1][0]),
+            "true_positives": int(cm[1][1])
+        }
+    }
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics_data, f, indent=2)
+    print(f"[+] Saved evaluation metrics to: {metrics_path}")
 
 if __name__ == "__main__":
     args = parse_args()
