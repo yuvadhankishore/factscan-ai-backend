@@ -77,6 +77,30 @@ class OpenAiConfig {
         error_log("OpenAI API error ($httpCode): " . ($curlErr ?: $response));
         return null;
     }
+
+    public static function generateCrossReferencedVerification(string $claim, array $crossSources, ?string $apiKey = null): ?string {
+        $sourceText = "";
+        if (!empty($crossSources)) {
+            $sourceText = "\n\nRetrieved Live External News Coverage:\n";
+            foreach ($crossSources as $i => $art) {
+                $num = $i + 1;
+                $t = $art["title"] ?? "";
+                $p = $art["publisher"] ?? ($art["domain"] ?? "Web Source");
+                $s = $art["snippet"] ?? ($art["bodySnippet"] ?? "");
+                $sourceText .= "$num. Publisher: $p | Headline: $t\n   Snippet: $s\n";
+            }
+        }
+
+        $systemPrompt = "You are FactScan AI, an expert multi-source investigative news analyst. Evaluate the claim against the retrieved multi-source web articles and global reporting consensus. Return pure JSON.";
+        $userPrompt = "Claim to verify:\n\"$claim\"\n$sourceText\nDetermine if REAL or FAKE based on the cross-referenced reporting.";
+
+        $messages = [
+            ["role" => "system", "content" => $systemPrompt],
+            ["role" => "user", "content" => $userPrompt]
+        ];
+
+        return self::generateChatCompletion($messages, $apiKey, "gpt-4o-mini");
+    }
 }
 ?>
 

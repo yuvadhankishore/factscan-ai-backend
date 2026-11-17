@@ -18,12 +18,51 @@ def health():
 def handle_predict():
     data = request.get_json(silent=True) or {}
     text = data.get("text") or data.get("input") or data.get("claim") or ""
+    check_sources = data.get("check_sources", True)
     
     if not text:
         return jsonify({"success": False, "message": "Field 'text' or 'input' is required"}), 400
 
-    result = predict(text)
+    result = predict(text, check_cross_sources=check_sources)
     return jsonify(result)
+
+@app.route("/cross_check", methods=["POST"])
+def handle_cross_check():
+    data = request.get_json(silent=True) or {}
+    text = data.get("text") or data.get("input") or data.get("claim") or ""
+    
+    if not text:
+        return jsonify({"success": False, "message": "Field 'text' or 'input' is required"}), 400
+
+    result = predict(text, check_cross_sources=True)
+    return jsonify({
+        "success": True,
+        "headline": result.get("headline", ""),
+        "verdict": "REAL" if result.get("isReal") else "FAKE",
+        "isReal": result.get("isReal", False),
+        "confidence": result.get("confidence", 85),
+        "consensus": result.get("multiSourceConsensus", {}),
+        "crossSourceArticles": result.get("crossSourceArticles", []),
+        "atomicClaims": result.get("atomicClaims", []),
+        "quotationAudit": result.get("quotationAudit", {}),
+        "temporalAudit": result.get("temporalAudit", {})
+    })
+
+@app.route("/multi_source", methods=["POST"])
+def handle_multi_source():
+    data = request.get_json(silent=True) or {}
+    text = data.get("text") or data.get("input") or data.get("claim") or ""
+    
+    if not text:
+        return jsonify({"success": False, "message": "Field 'text' or 'input' is required"}), 400
+
+    result = predict(text, check_cross_sources=True)
+    return jsonify({
+        "success": True,
+        "articles": result.get("crossSourceArticles", []),
+        "consensus": result.get("multiSourceConsensus", {}),
+        "atomicClaims": result.get("atomicClaims", [])
+    })
 
 @app.route("/chat", methods=["POST"])
 def handle_chat():

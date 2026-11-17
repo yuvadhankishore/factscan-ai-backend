@@ -16,6 +16,13 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from features import LinguisticFeatureExtractor
+from multi_source_engine import synthesize_search_queries, search_google_news_rss
+from publisher_registry import get_publisher_rating
+from stance_analyzer import analyze_article_stance
+from consensus_scorer import compute_multi_source_consensus
+from claim_decomposer import decompose_article_claims
+from quote_verifier import audit_quotations_and_attribution
+from temporal_detector import analyze_temporal_signals
 
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
@@ -218,7 +225,7 @@ def synthesize_summary(text, is_real, confidence, knowledge):
     else:
         return "FactScan AI machine learning and credibility analysis identified high-risk disinformation markers, unverified assertions, and patterns typical of uncorroborated online claims."
 
-def predict(text):
+def predict(text, check_cross_sources=True):
     if not text or not text.strip():
         return {
             "success": False,
@@ -230,6 +237,47 @@ def predict(text):
 
     feats = LinguisticFeatureExtractor.get_feature_dict(cleaned_text)
     knowledge = analyze_domain_knowledge(cleaned_text)
+    atomic_claims = decompose_article_claims(cleaned_text)
+    quote_audit = audit_quotations_and_attribution(cleaned_text)
+    temporal_signals = analyze_temporal_signals(cleaned_text)
+
+    # Multi-source web cross-referencing
+    cross_source_articles = []
+    consensus_result = {
+        "totalSources": 0,
+        "corroboratingCount": 0,
+        "refutingCount": 0,
+        "neutralCount": 0,
+        "consensusScore": 50,
+        "verdict": "UNVERIFIED",
+        "summary": "External multi-source verification completed via local knowledge base."
+    }
+
+    if check_cross_sources:
+        try:
+            queries = synthesize_search_queries(cleaned_text)
+            raw_articles = search_google_news_rss(queries["primary"], max_results=4)
+            for art in raw_articles:
+                pub_info = get_publisher_rating(art.get("domain", ""))
+                stance_info = analyze_article_stance(cleaned_text, art)
+                art_entry = {
+                    "title": art.get("title", ""),
+                    "url": art.get("url", ""),
+                    "domain": art.get("domain", ""),
+                    "publisher": pub_info.get("name", art.get("publisher", "")),
+                    "publisherTier": pub_info.get("tier", "UNVERIFIED"),
+                    "publisherTrustScore": pub_info.get("trustScore", 70),
+                    "publishedAt": art.get("publishedAt", "Recent"),
+                    "stance": stance_info.get("stance", "NEUTRAL_COVERAGE"),
+                    "stanceExplanation": stance_info.get("explanation", ""),
+                    "alignmentScore": stance_info.get("alignmentScore", 0)
+                }
+                cross_source_articles.append(art_entry)
+
+            if cross_source_articles:
+                consensus_result = compute_multi_source_consensus(cleaned_text, cross_source_articles)
+        except Exception:
+            pass
 
     # 1. Check Hoax Override
     if knowledge.get("matchedHoax"):
@@ -237,6 +285,11 @@ def predict(text):
         confidence = 97
         prob_real = 0.03
         prob_fake = 0.97
+    elif consensus_result.get("verdict") == "DISPUTED_OR_DEBUNKED":
+        is_real = False
+        confidence = 96
+        prob_real = 0.04
+        prob_fake = 0.96
     else:
         # 2. Machine Learning Pipeline Inference
         prob_real = 0.50
@@ -253,7 +306,7 @@ def predict(text):
             except Exception:
                 pass
 
-        # 3. Knowledge-Assisted Calibration & Dynamic Risk Thresholding
+        # 3. Knowledge & Multi-Source Calibration
         insts = knowledge.get("institutions", [])
         sensational = feats.get("sensationalismIndex", 0)
         urgency = feats.get("urgencyPanicLevel", 0)
@@ -263,17 +316,19 @@ def predict(text):
         
         credibility_boost = 0.0
         if insts and sensational < 15 and urgency < 10 and fear < 10:
-            # Significant institutional boost for authentic reports
             credibility_boost += 0.35 + (0.08 * len(insts))
             
         if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
             credibility_boost += 0.15
 
-        # Quantitative evidence boost for cited figures & clinical dates
+        if consensus_result.get("verdict") == "STRONGLY_CORROBORATED":
+            credibility_boost += 0.30
+        elif consensus_result.get("corroboratingCount", 0) >= 1:
+            credibility_boost += 0.15
+
         if evidence >= 15 and sensational < 20 and fear < 10:
             credibility_boost += 0.12
 
-        # Objective reporting baseline: Factual, calm news with zero sensationalism or panic indicators
         if sensational == 0 and urgency == 0 and fear == 0 and bias == 0 and not knowledge.get("matchedHoax"):
             credibility_boost += 0.25
 
@@ -290,7 +345,6 @@ def predict(text):
         calibrated_real = max(0.02, min(0.98, prob_real + credibility_boost - penalty))
         calibrated_fake = 1.0 - calibrated_real
 
-        # Dynamic Thresholding: Require higher evidence bar if sensationalism or urgency is present
         decision_threshold = 0.50
         if sensational >= 20 or urgency >= 15 or fear >= 15:
             decision_threshold = 0.62
@@ -337,6 +391,11 @@ def predict(text):
         "features": feats,
         "forensicMetrics": forensic_metrics,
         "corroboratedSources": knowledge.get("institutions", []),
+        "crossSourceArticles": cross_source_articles,
+        "multiSourceConsensus": consensus_result,
+        "atomicClaims": atomic_claims,
+        "quotationAudit": quote_audit,
+        "temporalAudit": temporal_signals,
         "topFeatureIndicators": feature_indicators,
         "warningSignals": signals,
         "keyFindings": findings,

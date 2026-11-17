@@ -5,6 +5,7 @@
 require_once __DIR__ . "/gemini.php";
 require_once __DIR__ . "/openai.php";
 require_once __DIR__ . "/ai_keys.php";
+require_once __DIR__ . "/multi_source_bridge.php";
 require_once __DIR__ . "/../ml/factcheck_engine.php";
 
 class AiAgentOrchestrator {
@@ -21,6 +22,10 @@ class AiAgentOrchestrator {
     ): array {
         $activeGeminiKey = GeminiConfig::getApiKey($geminiKey);
         $activeOpenAiKey = OpenAiConfig::getApiKey($openaiKey);
+
+        // Fetch live cross-source articles and consensus
+        $claimQuery = ($type === "URL" && $parsedArticle) ? ($parsedArticle["title"] ?? $text) : $text;
+        $crossSourceData = MultiSourceBridge::crossReferenceClaim($claimQuery);
 
         $prompt = self::buildVerificationPrompt($text, $type, $parsedArticle);
 
@@ -41,7 +46,7 @@ class AiAgentOrchestrator {
             if ($openAiResponse) {
                 $parsed = self::extractAndParseJson($openAiResponse);
                 if ($parsed && isset($parsed["verdict"])) {
-                    return self::formatAgentResult($parsed, "chatgpt_agent_gpt4o_mini", $parsedArticle, $text);
+                    return self::formatAgentResult($parsed, "chatgpt_agent_gpt4o_mini", $parsedArticle, $text, $crossSourceData);
                 }
             }
         }
@@ -52,7 +57,7 @@ class AiAgentOrchestrator {
             if ($geminiResponse) {
                 $parsed = self::extractAndParseJson($geminiResponse);
                 if ($parsed && isset($parsed["verdict"])) {
-                    return self::formatAgentResult($parsed, "gemini_agent_flash", $parsedArticle, $text);
+                    return self::formatAgentResult($parsed, "gemini_agent_flash", $parsedArticle, $text, $crossSourceData);
                 }
             }
         }
@@ -69,6 +74,13 @@ class AiAgentOrchestrator {
             $eval["headline"] = !empty($parsedArticle["title"]) ? $parsedArticle["title"] : $eval["headline"];
             $eval["publisher"] = !empty($parsedArticle["publisher"]) ? $parsedArticle["publisher"] : $eval["publisher"];
         }
+
+        // Attach multi-source cross-reference data to local evaluation
+        $eval["crossSourceArticles"] = $crossSourceData["crossSourceArticles"] ?? [];
+        $eval["multiSourceConsensus"] = $crossSourceData["consensus"] ?? [];
+        $eval["atomicClaims"] = $crossSourceData["atomicClaims"] ?? [];
+        $eval["quotationAudit"] = $crossSourceData["quotationAudit"] ?? [];
+        $eval["temporalAudit"] = $crossSourceData["temporalAudit"] ?? [];
 
         return $eval;
     }
@@ -183,7 +195,7 @@ EOT;
         return is_array($parsed) ? $parsed : null;
     }
 
-    private static function formatAgentResult(array $parsed, string $engineName, ?array $parsedArticle, string $originalText): array {
+    private static function formatAgentResult(array $parsed, string $engineName, ?array $parsedArticle, string $originalText, ?array $crossSourceData = null): array {
         $verdict = strtoupper(trim($parsed["verdict"] ?? ""));
         if (!in_array($verdict, ["REAL", "FAKE", "MISLEADING"])) {
             $verdict = !empty($parsed["isReal"]) ? "REAL" : "FAKE";
@@ -243,6 +255,11 @@ EOT;
             "warningSignals" => $warningSignals,
             "forensicMetrics" => $forensicMetrics,
             "corroboratedSources" => is_array($parsed["corroboratedSources"] ?? null) ? $parsed["corroboratedSources"] : [],
+            "crossSourceArticles" => $crossSourceData["crossSourceArticles"] ?? [],
+            "multiSourceConsensus" => $crossSourceData["consensus"] ?? [],
+            "atomicClaims" => $crossSourceData["atomicClaims"] ?? [],
+            "quotationAudit" => $crossSourceData["quotationAudit"] ?? [],
+            "temporalAudit" => $crossSourceData["temporalAudit"] ?? [],
             "verifiedSources" => is_array($parsed["verifiedSources"] ?? null) ? $parsed["verifiedSources"] : [],
             "engine" => $engineName
         ];
