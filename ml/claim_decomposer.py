@@ -29,7 +29,7 @@ def is_verifiable_proposition(sentence: str) -> bool:
         return False
         
     # Must contain a verb or key predicate
-    has_predicate = bool(re.search(r'\b(is|was|were|are|has|have|had|declared|announced|stated|confirmed|found|discovered|passed|signed|approved|caused|cures|killed|issued|banned)\b', lower))
+    has_predicate = bool(re.search(r'\b(is|was|were|are|has|have|had|declared|announced|stated|confirmed|found|discovered|passed|signed|approved|caused|cures|killed|issued|banned|plunged|crashed|dropped|fell|rose|jumped|reported)\b', lower))
     return has_predicate and len(sentence.split()) >= 5
 
 def decompose_article_claims(text: str, max_claims: int = 4) -> List[Dict[str, Any]]:
