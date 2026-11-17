@@ -1,0 +1,36 @@
+{
+  "sovereign_countries": [
+    {"name": "India", "capital": "New Delhi", "type": "Country", "states_count": 28, "ut_count": 8, "not_a": ["state", "city", "continent"]},
+    {"name": "United States", "capital": "Washington, D.C.", "type": "Country", "states_count": 50, "not_a": ["state", "city", "continent"]},
+    {"name": "China", "capital": "Beijing", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "United Kingdom", "capital": "London", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "France", "capital": "Paris", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Germany", "capital": "Berlin", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Japan", "capital": "Tokyo", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Russia", "capital": "Moscow", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Brazil", "capital": "Brasilia", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Canada", "capital": "Ottawa", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Italy", "capital": "Rome", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Spain", "capital": "Madrid", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "South Korea", "capital": "Seoul", "type": "Country", "not_a": ["state", "city", "continent"]},
+    {"name": "Australia", "capital": "Canberra", "type": "Country and Continent", "not_a": ["state", "city"]}
+  ],
+  "states_and_provinces": [
+    {"name": "California", "country": "United States", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Texas", "country": "United States", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Maharashtra", "country": "India", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Tamil Nadu", "country": "India", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Uttar Pradesh", "country": "India", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Karnataka", "country": "India", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Kerala", "country": "India", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Bavaria", "country": "Germany", "type": "State", "not_a": ["country", "continent"]},
+    {"name": "Ontario", "country": "Canada", "type": "Province", "not_a": ["country", "continent"]}
+  ],
+  "major_continents": [
+    {"name": "Africa", "countries_count": 54, "not_a": ["country", "state", "city"]},
+    {"name": "Asia", "countries_count": 48, "not_a": ["country", "state", "city"]},
+    {"name": "Europe", "countries_count": 44, "not_a": ["country", "state", "city"]},
+    {"name": "North America", "countries_count": 23, "not_a": ["country", "state", "city"]},
+    {"name": "South America", "countries_count": 12, "not_a": ["country", "state", "city"]}
+  ]
+}
