@@ -26,6 +26,10 @@ class GeminiReasoningAgent {
         $format = strtoupper(trim($format));
 
         // Format-specific query resolution
+        $normalizedPayload = self::ingestFormatContent($content, $format, $base64Media, $mimeType, $parsedArticle);
+        $content = $normalizedPayload["processedText"];
+        $base64Media = $normalizedPayload["base64Media"];
+        $mimeType = $normalizedPayload["mimeType"];
         $claimQuery = ($format === "URL" && $parsedArticle) ? ($parsedArticle["title"] ?? $content) : $content;
 
         // Step 1: Query live multi-source evidence and consensus
@@ -53,6 +57,70 @@ class GeminiReasoningAgent {
 
         // Step 4: Cognitive Simulation Engine (Gemini 2.0 Reasoning Core)
         return self::executeCognitiveReasoning($content, $format, $parsedArticle, $crossSourceData);
+    }
+
+    /**
+     * Normalizes and enriches content according to input format
+     */
+    public static function ingestFormatContent(
+        string $content,
+        string $format,
+        ?string $base64Media,
+        ?string $mimeType,
+        ?array $parsedArticle
+    ): array {
+        $processedText = trim($content);
+        $finalBase64 = $base64Media;
+        $finalMime = $mimeType;
+
+        switch ($format) {
+            case "URL":
+                if ($parsedArticle && !empty($parsedArticle["bodyText"])) {
+                    $processedText = "URL: " . ($parsedArticle["url"] ?? "") . "\nTitle: " . ($parsedArticle["title"] ?? "") . "\nPublisher: " . ($parsedArticle["publisher"] ?? "") . "\n\n" . $parsedArticle["bodyText"];
+                }
+                break;
+
+            case "DOCUMENT_UPLOAD":
+                // If content looks like a base64 encoded document
+                if (preg_match('/^data:application\/pdf;base64,(.+)$/', $content, $m)) {
+                    $finalBase64 = $m[1];
+                    $finalMime = "application/pdf";
+                    $processedText = "[PDF Document Uploaded for Gemini Multimodal Analysis]";
+                }
+                break;
+
+            case "IMAGE":
+            case "IMAGE_OCR":
+                // If content is base64 image or OCR text
+                if (preg_match('/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/', $content, $m)) {
+                    $finalBase64 = $m[2];
+                    $finalMime = "image/" . strtolower($m[1]);
+                    $processedText = "[Image Screenshot Uploaded for Gemini Visual Fact-Checking]";
+                }
+                break;
+
+            case "AUDIO":
+            case "AUDIO_TRANSCRIPT":
+                if (preg_match('/^data:audio\/([a-zA-Z0-9]+);base64,(.+)$/', $content, $m)) {
+                    $finalBase64 = $m[2];
+                    $finalMime = "audio/" . strtolower($m[1]);
+                    $processedText = "[Voice Recording Uploaded for Gemini Audio Fact-Checking]";
+                } else {
+                    $processedText = "Transcribed Voice Claim: " . $processedText;
+                }
+                break;
+
+            default:
+                // Plain text / headline claim
+                $processedText = trim($content);
+                break;
+        }
+
+        return [
+            "processedText" => $processedText,
+            "base64Media" => $finalBase64,
+            "mimeType" => $finalMime
+        ];
     }
 
     /**
