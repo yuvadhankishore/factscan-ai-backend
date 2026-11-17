@@ -428,6 +428,11 @@ echo json_encode([
             "tier" => "UNRATED",
             "factuality" => "UNKNOWN",
             "credibilityScore" => 50.0
+        ],
+        "entityAudit" => is_array($result["entityAudit"] ?? null) ? $result["entityAudit"] : [
+            "isContradiction" => !$result["isReal"] && (strpos(strtolower($result["summary"] ?? ""), "sovereign") !== false || strpos(strtolower($result["summary"] ?? ""), "country") !== false),
+            "entityType" => "Geopolitical / Empirical Entity",
+            "auditStatus" => $result["isReal"] ? "CONSISTENT_WITH_FACTS" : "CONTRADICTS_WORLD_FACTS"
         ]
     ]
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
