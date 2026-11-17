@@ -1,0 +1,67 @@
+{
+  "overall_accuracy": 98.89,
+  "overall_f1": 98.9,
+  "overall_auc": 100.0,
+  "domains": [
+    {
+      "domain": "Geopolitics & Nations",
+      "sample_count": 12,
+      "accuracy": 100.0,
+      "f1_score": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "roc_auc": 100.0,
+      "avg_latency_ms": 2.78
+    },
+    {
+      "domain": "Biomedicine & Health",
+      "sample_count": 12,
+      "accuracy": 100.0,
+      "f1_score": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "roc_auc": 100.0,
+      "avg_latency_ms": 1.86
+    },
+    {
+      "domain": "Astronomy & Space",
+      "sample_count": 12,
+      "accuracy": 100.0,
+      "f1_score": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "roc_auc": 100.0,
+      "avg_latency_ms": 1.91
+    },
+    {
+      "domain": "Finance & Economics",
+      "sample_count": 12,
+      "accuracy": 100.0,
+      "f1_score": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "roc_auc": 100.0,
+      "avg_latency_ms": 1.87
+    },
+    {
+      "domain": "Technology & Cyber",
+      "sample_count": 12,
+      "accuracy": 100.0,
+      "f1_score": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "roc_auc": 100.0,
+      "avg_latency_ms": 1.8
+    },
+    {
+      "domain": "Contemporary & Viral",
+      "sample_count": 30,
+      "accuracy": 96.67,
+      "f1_score": 96.77,
+      "precision": 93.75,
+      "recall": 100.0,
+      "roc_auc": 100.0,
+      "avg_latency_ms": 1.18
+    }
+  ]
+}
