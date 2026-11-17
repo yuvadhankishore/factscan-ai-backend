@@ -7,6 +7,8 @@ and performs cross-source verification.
 
 import re
 import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
 from typing import List, Dict, Any
 
 STOPWORDS = {
@@ -73,6 +75,61 @@ def synthesize_search_queries(claim_text: str) -> Dict[str, str]:
         "wireSearch": wire_query,
         "rawKeywords": words[:8]
     }
+
+def search_google_news_rss(query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    """
+    Queries Google News RSS feed for real-time coverage from international news outlets.
+    Returns normalized article items with title, link, publisher, and publication timestamp.
+    """
+    encoded_query = urllib.parse.quote_plus(query)
+    url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 FactScanAI/2.0"
+    }
+    
+    articles = []
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=6) as response:
+            xml_data = response.read()
+            root = ET.fromstring(xml_data)
+            channel = root.find("channel")
+            if channel is not None:
+                items = channel.findall("item")
+                for item in items[:max_results]:
+                    title_elem = item.find("title")
+                    link_elem = item.find("link")
+                    pubdate_elem = item.find("pubDate")
+                    source_elem = item.find("source")
+                    
+                    raw_title = title_elem.text if title_elem is not None else ""
+                    link = link_elem.text if link_elem is not None else ""
+                    pubdate = pubdate_elem.text if pubdate_elem is not None else ""
+                    source_name = source_elem.text if source_elem is not None else ""
+                    
+                    # Split title if it ends with " - Source Name"
+                    clean_title = raw_title
+                    if " - " in clean_title and not source_name:
+                        parts = clean_title.rsplit(" - ", 1)
+                        clean_title = parts[0].strip()
+                        source_name = parts[1].strip()
+                        
+                    if clean_title and link:
+                        domain = urllib.parse.urlparse(link).netloc.replace("www.", "")
+                        articles.append({
+                            "title": clean_title,
+                            "url": link,
+                            "domain": domain or (source_name.lower().replace(" ", "") + ".com"),
+                            "publisher": source_name or domain or "International News Wire",
+                            "publishedAt": pubdate[:16] if pubdate else "Recent",
+                            "snippet": clean_title
+                        })
+    except Exception as e:
+        # Graceful fallback on network timeout or offline
+        pass
+
+    return articles
 
 if __name__ == "__main__":
     sample = "NASA confirms James Webb Space Telescope observed oldest galaxy formed 13 billion years ago"
