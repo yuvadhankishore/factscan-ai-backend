@@ -245,6 +245,7 @@ def predict(text, check_cross_sources=True):
         return {
             "success": True,
             "isReal": entity_check["isReal"],
+            "verdict": "REAL" if entity_check["isReal"] else "FAKE",
             "confidence": entity_check["confidence"],
             "probabilities": {"real": 0.01, "fake": 0.99},
             "features": {
@@ -305,6 +306,7 @@ def predict(text, check_cross_sources=True):
         return {
             "success": True,
             "isReal": sci_check["isReal"],
+            "verdict": sci_check.get("verdict", "FAKE"),
             "confidence": sci_check["confidence"],
             "probabilities": {"real": 0.01, "fake": 0.99},
             "features": {
@@ -365,6 +367,7 @@ def predict(text, check_cross_sources=True):
         return {
             "success": True,
             "isReal": viral_check["isReal"],
+            "verdict": viral_check.get("verdict", "FAKE"),
             "confidence": viral_check["confidence"],
             "probabilities": {"real": 0.01, "fake": 0.99},
             "features": {
@@ -569,6 +572,7 @@ def predict(text, check_cross_sources=True):
     return {
         "success": True,
         "isReal": is_real,
+        "verdict": "REAL" if is_real else "FAKE",
         "confidence": confidence,
         "probabilities": {
             "real": round(prob_real, 4),
