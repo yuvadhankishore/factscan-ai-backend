@@ -90,10 +90,13 @@ class PythonAiBridge {
         fclose($pipes[2]);
 
         $returnCode = proc_close($process);
-        if ($returnCode === 0 && $stdout) {
-            $data = json_decode(trim($stdout), true);
-            if (is_array($data) && isset($data["isReal"])) {
-                return $data;
+        if ($stdout) {
+            // Robustly extract JSON object ignoring any preceding warnings or trailing text
+            if (preg_match('/\{[\s\S]*\}/', $stdout, $matches)) {
+                $data = json_decode($matches[0], true);
+                if (is_array($data) && isset($data["isReal"])) {
+                    return $data;
+                }
             }
         }
 

@@ -10,6 +10,8 @@ import sys
 import json
 import re
 import argparse
+import warnings
+warnings.filterwarnings("ignore")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:

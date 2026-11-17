@@ -178,6 +178,8 @@ class GeminiConfig {
         }
 
         return null;
+    }
+
     public static function generateMultiSourceContent(string $claim, array $crossSources, ?string $apiKey = null): ?string {
         $sourceText = "";
         if (!empty($crossSources)) {

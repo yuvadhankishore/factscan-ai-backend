@@ -1,6 +1,8 @@
 <?php
 // FactScan AI - Embedded Machine Learning & Document Verification Engine
 
+require_once __DIR__ . "/../config/ai_bridge.php";
+
 class FactCheckEngine {
     private static ?array $model = null;
     private static string $modelPath = __DIR__ . "/model/trained_classifier.json";
