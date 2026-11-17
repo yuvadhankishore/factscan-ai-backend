@@ -4,7 +4,8 @@
 
 class PythonAiBridge {
     const MICROSERVICE_URL = "http://127.0.0.1:5000/predict";
-    const MICROSERVICE_TIMEOUT = 2; // seconds
+    const MICROSERVICE_TIMEOUT = 5; // seconds to allow live multi-source inference
+    const MAX_RETRIES = 2;
 
     /**
      * Predict claim authenticity using Python ML
@@ -19,10 +20,13 @@ class PythonAiBridge {
             return null;
         }
 
-        // Attempt 1: Call Python Microservice via cURL
-        $serviceResult = self::callMicroservice($text);
-        if ($serviceResult !== null) {
-            return $serviceResult;
+        // Attempt 1: Call Python Microservice via cURL with retries
+        for ($i = 0; $i < self::MAX_RETRIES; $i++) {
+            $serviceResult = self::callMicroservice($text);
+            if ($serviceResult !== null) {
+                return $serviceResult;
+            }
+            usleep(50000); // 50ms before retry
         }
 
         // Attempt 2: Direct CLI Execution
