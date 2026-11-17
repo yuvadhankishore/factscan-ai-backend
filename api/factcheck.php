@@ -171,31 +171,60 @@ if (!is_array($data)) {
 }
 
 $input = trim($data["input"] ?? $data["claim"] ?? $data["text"] ?? $data["claim_input"] ?? $data["content"] ?? $data["url"] ?? "");
-$type = strtoupper(trim($data["type"] ?? ""));
+$type = strtoupper(trim($data["type"] ?? $data["format"] ?? ""));
 
 if (empty($type)) {
     if (isset($data["url"]) || preg_match('/^https?:\/\//i', $input)) {
         $type = "URL";
+    } elseif (isset($data["image_data"]) || isset($_FILES["image"])) {
+        $type = "IMAGE";
+    } elseif (isset($data["audio_data"]) || isset($_FILES["audio"])) {
+        $type = "AUDIO";
     } else {
         $type = "TEXT_CLAIM";
     }
 }
-if (!in_array($type, ["URL", "TEXT_CLAIM", "DOCUMENT_UPLOAD"])) {
+$validTypes = ["URL", "TEXT_CLAIM", "DOCUMENT_UPLOAD", "IMAGE", "IMAGE_OCR", "AUDIO", "AUDIO_TRANSCRIPT"];
+if (!in_array($type, $validTypes)) {
     $type = "TEXT_CLAIM";
 }
 
-// Support multipart file uploads for DOCUMENT_UPLOAD (PDF, DOCX, TXT, etc.)
-if (empty($input) && isset($_FILES["file"]) && $_FILES["file"]["error"] === UPLOAD_ERR_OK) {
-    $input = FactCheckEngine::extractTextFromDocument($_FILES["file"]["tmp_name"], $_FILES["file"]["name"] ?? "");
+// Extract base64 multimodal media payload (image, document, or audio)
+$base64Media = $data["image_data"] ?? $data["base64_media"] ?? $data["media_data"] ?? $data["audio_data"] ?? null;
+$mimeType = $data["mime_type"] ?? $data["media_type"] ?? null;
+
+// Support multipart file uploads for DOCUMENT_UPLOAD, IMAGE, and AUDIO
+if (isset($_FILES["file"]) && $_FILES["file"]["error"] === UPLOAD_ERR_OK) {
+    $fName = $_FILES["file"]["name"] ?? "";
+    $fTmp = $_FILES["file"]["tmp_name"];
+    if (preg_match('/\.(jpg|jpeg|png|webp)$/i', $fName)) {
+        $type = "IMAGE";
+        $base64Media = base64_encode(file_get_contents($fTmp));
+        $mimeType = mime_content_type($fTmp) ?: "image/jpeg";
+        if (empty($input)) $input = "[Photo upload: $fName]";
+    } elseif (preg_match('/\.(mp3|wav|m4a|aac|ogg)$/i', $fName)) {
+        $type = "AUDIO";
+        $base64Media = base64_encode(file_get_contents($fTmp));
+        $mimeType = mime_content_type($fTmp) ?: "audio/mpeg";
+        if (empty($input)) $input = "[Audio recording: $fName]";
+    } else {
+        $extractedDoc = FactCheckEngine::extractTextFromDocument($fTmp, $fName);
+        if (!empty($extractedDoc)) $input = $extractedDoc;
+    }
+} elseif (isset($_FILES["image"]) && $_FILES["image"]["error"] === UPLOAD_ERR_OK) {
+    $type = "IMAGE";
+    $base64Media = base64_encode(file_get_contents($_FILES["image"]["tmp_name"]));
+    $mimeType = mime_content_type($_FILES["image"]["tmp_name"]) ?: "image/jpeg";
+    if (empty($input)) $input = "[Uploaded News Screenshot / Photo]";
 } elseif (empty($input) && isset($_FILES["document"]) && $_FILES["document"]["error"] === UPLOAD_ERR_OK) {
     $input = FactCheckEngine::extractTextFromDocument($_FILES["document"]["tmp_name"], $_FILES["document"]["name"] ?? "");
 }
 
-if ($input === "") {
+if ($input === "" && empty($base64Media)) {
     http_response_code(400);
     echo json_encode([
         "success" => false,
-        "message" => "Input claim, URL, or document content is required for analysis"
+        "message" => "Input claim, URL, document, or media content is required for analysis"
     ]);
     exit;
 }
@@ -298,13 +327,15 @@ if ($type === "URL") {
     }
 }
 
-// Process claim, URL, or document using Unified AI Agent Orchestrator (ChatGPT -> Gemini -> Neural Ensemble)
+// Process claim, URL, document, or media using Gemini-first Unified Orchestrator
 $result = AiAgentOrchestrator::verifyClaim(
     $input,
     $type,
     $parsedArticle,
     $apiKey,
-    $openaiApiKey
+    $openaiApiKey,
+    $base64Media,
+    $mimeType
 );
 $analysisEngine = $result["engine"] ?? "ai_agent_orchestrator";
 $rawGemini = $analysisEngine;
