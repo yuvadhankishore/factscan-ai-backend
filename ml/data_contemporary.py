@@ -163,3 +163,4 @@ CONTEMPORARY_CORPUS = [
 
 if __name__ == "__main__":
     print(f"Loaded {len(CONTEMPORARY_CORPUS)} contemporary global news and disinformation samples.")
+
