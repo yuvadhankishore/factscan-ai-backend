@@ -1,0 +1,74 @@
+{
+  "version": "2.0.0",
+  "domain": "Medical & Health Science",
+  "claims": [
+    {
+      "trigger_keywords": [
+        "lemon tea cure cancer",
+        "boiled lemon cancer",
+        "cure cancer in 48 hours"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 98,
+      "summary": "Medical consensus and peer-reviewed oncology studies confirm that consuming lemon water or boiled citrus peels cannot cure cancer.",
+      "why_this_result": "Oncological clinical research from WHO, NIH, and American Cancer Society shows no food or citrus extract eliminates malignant tumors in humans.",
+      "scientific_authorities": [
+        "World Health Organization",
+        "National Cancer Institute",
+        "American Cancer Society"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "drinking bleach",
+        "miracle mineral solution",
+        "chlorine dioxide cure"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Chlorine dioxide and industrial bleaching agents are toxic corrosives that cause severe respiratory and gastrointestinal poisoning.",
+      "why_this_result": "FDA and global health regulatory agencies have issued emergency warnings classifying MMS as industrial bleach without medical efficacy.",
+      "scientific_authorities": [
+        "US FDA",
+        "European Medicines Agency",
+        "WHO"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "vaccines contain microchip",
+        "5g microchip in vaccine",
+        "rfid chip vaccine"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Vaccine ingredients are publicly audited and analyzed using spectrometry and biochemical sequencing; zero electronic components exist in vaccines.",
+      "why_this_result": "Physical and micro-engineering constraints make sub-micron RFID chips in injectable liquids scientifically impossible and non-existent.",
+      "scientific_authorities": [
+        "CDC",
+        "EMA",
+        "Gavi Vaccine Alliance"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "cure diabetes overnight",
+        "eliminate diabetes in 7 days",
+        "ancient root cure diabetes"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 97,
+      "summary": "Diabetes mellitus is a chronic metabolic condition governed by insulin production and cellular resistance; no verified substance cures it overnight.",
+      "why_this_result": "Endocrinological science confirms diabetes requires systematic clinical management through diet, insulin therapy, or glucose-regulating medications.",
+      "scientific_authorities": [
+        "American Diabetes Association",
+        "International Diabetes Federation",
+        "WHO"
+      ]
+    }
+  ]
+}
