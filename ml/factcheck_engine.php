@@ -329,9 +329,12 @@ class FactCheckEngine {
         } elseif ($pythonResult !== null && isset($pythonResult["isReal"])) {
             // Adopt Python's Knowledge-Assisted Ensemble Prediction & Dynamic Synthesis
             $isReal = (bool)$pythonResult["isReal"];
-            $verdict = $isReal ? "REAL" : "FAKE";
+            $verdict = !empty($pythonResult["verdict"]) ? $pythonResult["verdict"] : ($isReal ? "REAL" : "FAKE");
             $confidence = (int)($pythonResult["confidence"] ?? 90);
             $summary = !empty($pythonResult["summary"]) ? $pythonResult["summary"] : "";
+            $whyThisResult = !empty($pythonResult["whyThisResult"]) ? $pythonResult["whyThisResult"] : "";
+            $verdictJustification = !empty($pythonResult["verdictJustification"]) ? $pythonResult["verdictJustification"] : $summary;
+            $reasoningSteps = !empty($pythonResult["reasoningSteps"]) ? $pythonResult["reasoningSteps"] : [];
             $keyFindings = !empty($pythonResult["keyFindings"]) ? $pythonResult["keyFindings"] : [];
             $warningSignals = !empty($pythonResult["warningSignals"]) ? $pythonResult["warningSignals"] : [];
             $engine = $pythonResult["engine"] ?? "factscan_knowledge_assisted_ensemble";
