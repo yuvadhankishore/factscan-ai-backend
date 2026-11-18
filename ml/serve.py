@@ -10,6 +10,7 @@ import json
 from flask import Flask, request, jsonify
 from predict import predict, get_pipeline
 from entity_fact_checker import EntityFactChecker
+from reasoning_engine import explain_claim
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_METRICS_PATH = os.path.join(BASE_DIR, "model", "training_metrics.json")
@@ -69,6 +70,30 @@ def handle_entity_check():
         return jsonify({"success": False, "message": "Field 'text' is required"}), 400
     res = EntityFactChecker.verify_entity_claim(text)
     return jsonify({"success": True, "match": res is not None, "result": res})
+
+@app.route("/explain", methods=["POST"])
+def handle_explain():
+    data = request.get_json(silent=True) or {}
+    text = data.get("text") or data.get("input") or data.get("claim") or ""
+    if not text:
+        return jsonify({"success": False, "message": "Field 'text' or 'input' is required"}), 400
+
+    pred = predict(text, check_cross_sources=False)
+    explanation = explain_claim(
+        text,
+        pred.get("isReal", False),
+        pred.get("confidence", 90),
+        matched_domain=pred.get("features", {}).get("matchedDomain"),
+        category_name=pred.get("features", {}).get("category")
+    )
+    return jsonify({
+        "success": True,
+        "headline": pred.get("headline", text),
+        "isReal": pred.get("isReal", False),
+        "verdict": pred.get("verdict", "FAKE"),
+        "confidence": pred.get("confidence", 90),
+        "explanation": explanation
+    })
 
 @app.route("/predict", methods=["POST"])
 def handle_predict():
