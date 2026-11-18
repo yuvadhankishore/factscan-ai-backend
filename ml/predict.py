@@ -28,6 +28,7 @@ from temporal_detector import analyze_temporal_signals
 from entity_fact_checker import EntityFactChecker
 from medical_scientific_verifier import check_medical_scientific_consensus
 from viral_rumor_verifier import check_viral_rumors
+from reasoning_engine import explain_claim
 
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
@@ -589,9 +590,22 @@ def predict(text, check_cross_sources=True):
         prob_real = calibrated_real
         prob_fake = calibrated_fake
 
-    # Synthesize intelligent findings and summaries
+    # Synthesize intelligent findings, summaries, and deep reasoning
     findings, signals = synthesize_findings(cleaned_text, is_real, confidence, feats, knowledge)
     summary = synthesize_summary(cleaned_text, is_real, confidence, knowledge)
+    reasoning_data = explain_claim(
+        cleaned_text,
+        is_real,
+        confidence,
+        matched_domain=knowledge.get("hoaxCategory"),
+        category_name=knowledge.get("hoaxPattern")
+    )
+    if reasoning_data.get("key_findings"):
+        findings = reasoning_data["key_findings"]
+    if reasoning_data.get("warning_signals"):
+        signals = reasoning_data["warning_signals"]
+    if reasoning_data.get("verdict_justification") and not is_real:
+        summary = reasoning_data["verdict_justification"]
 
     feature_indicators = []
     if feats.get("sensationalismIndex", 0) > 25:
@@ -641,6 +655,10 @@ def predict(text, check_cross_sources=True):
         "keyFindings": findings,
         "summary": summary,
         "headline": headline,
+        "whyThisResult": reasoning_data.get("why_this_result", "Corroborated by verified evidence repositories."),
+        "verdictJustification": reasoning_data.get("verdict_justification", summary),
+        "reasoningSteps": reasoning_data.get("reasoning_steps", []),
+        "authoritativeCitations": reasoning_data.get("authoritative_citations", []),
         "engine": "factscan_knowledge_assisted_ensemble"
     }
 
