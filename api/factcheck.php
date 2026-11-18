@@ -297,9 +297,10 @@ $summary = !empty($result["summary"]) ? $result["summary"] : "Fact verification 
 $keyFindings = is_array($result["keyFindings"] ?? null) ? array_values($result["keyFindings"]) : [];
 $warningSignals = is_array($result["warningSignals"] ?? null) ? array_values($result["warningSignals"]) : [];
 
+$claimSubject = class_exists("FactCheckEngine") ? FactCheckEngine::extractSubjectOrThesis($headline) : $headline;
 $whyThisResult = !empty($result["whyThisResult"]) ? $result["whyThisResult"] : ($isReal
-    ? "Corroborated by accredited international registries, institutional releases, and empirical records without documented contradictions."
-    : "Refuted due to factual contradictions with sovereign geopolitical registries, empirical scientific consensus, or viral hoax patterns.");
+    ? "Corroborated: Empirical evidence and official institutional records confirm the claim regarding \"{$claimSubject}\" with zero credible refutations across global registries."
+    : "Refuted: Statements asserting \"{$claimSubject}\" directly contradict authenticated scientific, geopolitical, or regulatory records and match known misinformation patterns.");
 
 echo json_encode([
     "success" => true,
