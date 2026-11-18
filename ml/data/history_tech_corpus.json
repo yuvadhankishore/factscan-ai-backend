@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "domain": "History, Technology & Computing",
+  "claims": [
+    {
+      "trigger_keywords": [
+        "charge phone in microwave",
+        "microwave battery charge",
+        "microwave recharge iphone"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Microwave electromagnetic radiation causes rapid electrical arcing in phone metal components, destroying the device and risking catastrophic explosion.",
+      "why_this_result": "Microwaves oscillate dipole water molecules at 2.45 GHz; metal conductors inside batteries spark violently under these fields.",
+      "scientific_authorities": [
+        "IEEE",
+        "Consumer Product Safety Commission",
+        "Underwriters Laboratories"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "whatsapp will become chargeable",
+        "whatsapp paid from tomorrow",
+        "forward to 20 contacts to keep whatsapp free"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "This is a recurring 15-year chain letter hoax; Meta/WhatsApp operates over IP data connections and never conditions service on forwarded chain messages.",
+      "why_this_result": "Official WhatsApp security documentation states account status is never altered by messaging chains or viral forwarding.",
+      "scientific_authorities": [
+        "Meta Platforms Official Press",
+        "WhatsApp Safety Center"
+      ]
+    }
+  ]
+}
