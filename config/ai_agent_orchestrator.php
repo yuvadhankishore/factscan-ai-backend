@@ -29,17 +29,14 @@ class AiAgentOrchestrator {
         // Fetch live cross-source articles and consensus
         $claimQuery = ($type === "URL" && $parsedArticle) ? ($parsedArticle["title"] ?? $text) : $text;
 
-        // 0. Priority 0: Fast-Path Geopolitical, Medical, and Viral Rumor Verification via Python Bridge
-        if ($type === "TEXT_CLAIM" && class_exists("PythonAiBridge")) {
-            $entityResult = PythonAiBridge::predict($text);
-            if ($entityResult && in_array($entityResult["engine"] ?? "", [
-                "geopolitical_entity_verifier",
-                "entity_fact_checker",
-                "geopolitical_truth_validator",
-                "gemini_scientific_verifier",
-                "gemini_viral_rumor_verifier"
-            ])) {
-                $entityResult["geminiReasoningEngine"] = $entityResult["engine"] ?? "gemini_truth_validator";
+        // 0. Priority 0: Fast-Path Geopolitical, Multi-Domain Knowledge, and Trained Ensemble Verification via Python Bridge
+        if (class_exists("PythonAiBridge")) {
+            $entityResult = PythonAiBridge::predict($claimQuery);
+            if ($entityResult && !empty($entityResult["verdict"])) {
+                $entityResult["geminiReasoningEngine"] = $entityResult["engine"] ?? "python_ensemble_reasoning";
+                if (!empty($entityResult["whyThisResult"])) {
+                    $entityResult["whyThisResult"] = $entityResult["whyThisResult"];
+                }
                 return $entityResult;
             }
         }
