@@ -1,19 +1,19 @@
 {
-  "dataset_size": 700,
-  "train_size": 560,
-  "test_size": 140,
-  "cv_accuracy_mean": 97.86,
-  "cv_accuracy_std": 1.07,
-  "test_accuracy": 97.86,
-  "roc_auc": 99.8,
-  "f1_score": 97.87,
-  "precision": 95.83,
-  "recall": 100.0,
-  "brier_score": 0.0304,
+  "dataset_size": 770,
+  "train_size": 616,
+  "test_size": 154,
+  "cv_accuracy_mean": 96.92,
+  "cv_accuracy_std": 1.95,
+  "test_accuracy": 97.4,
+  "roc_auc": 99.76,
+  "f1_score": 97.4,
+  "precision": 96.15,
+  "recall": 98.68,
+  "brier_score": 0.0341,
   "confusion_matrix": {
-    "true_negatives": 68,
+    "true_negatives": 75,
     "false_positives": 3,
-    "false_negatives": 0,
-    "true_positives": 69
+    "false_negatives": 1,
+    "true_positives": 75
   }
 }
