@@ -1,4 +1,10 @@
 <?php
+ini_set('display_errors', '0');
+error_reporting(0);
+if (ob_get_level() === 0) {
+    ob_start();
+}
+
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
@@ -60,6 +66,8 @@ try {
         "timestamp" => date("c"),
         "claim" => $claim,
         "entityFactAudit" => $entityAudit,
+        "whyThisResult" => $pred["whyThisResult"] ?? ($crossCheckResult["consensus"]["summary"] ?? "Multi-source consensus evaluated."),
+        "verdictJustification" => $pred["verdictJustification"] ?? ($crossCheckResult["consensus"]["summary"] ?? "Consensus synthesis complete."),
         "multiSourceConsensus" => $crossCheckResult["consensus"] ?? [
             "consensusScore" => 75.0,
             "corroboratingCount" => 1,
