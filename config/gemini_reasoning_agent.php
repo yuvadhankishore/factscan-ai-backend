@@ -293,6 +293,11 @@ PROMPT;
                 : "Gemini 2.0 Flash determined the claim regarding \"{$thesis}\" is factually unsupported or contradicts established real-world records.";
         }
 
+        // Dynamically compute forensic metrics from actual text if not provided by parsed JSON
+        $forensicMetrics = (!empty($parsed["forensicMetrics"]) && is_array($parsed["forensicMetrics"]))
+            ? $parsed["forensicMetrics"]
+            : self::computeForensicMetrics($originalInput, $isReal);
+
         return [
             "id" => (int)(time() + rand(100, 999)),
             "headline" => $headline,
@@ -305,14 +310,7 @@ PROMPT;
             "summary" => $summary,
             "keyFindings" => !empty($parsed["keyFindings"]) && is_array($parsed["keyFindings"]) ? $parsed["keyFindings"] : ["Gemini multi-source cross reference completed."],
             "warningSignals" => !empty($parsed["warningSignals"]) && is_array($parsed["warningSignals"]) ? $parsed["warningSignals"] : [],
-            "forensicMetrics" => [
-                "sensationalism" => $isReal ? 12 : 74,
-                "urgency" => $isReal ? 8 : 68,
-                "credibility" => $isReal ? 94 : 16,
-                "evidenceDensity" => $isReal ? 82 : 14,
-                "fearLevel" => $isReal ? 5 : 62,
-                "biasLevel" => $isReal ? 10 : 71
-            ],
+            "forensicMetrics" => $forensicMetrics,
             "verifiedSources" => !empty($parsed["verifiedSources"]) && is_array($parsed["verifiedSources"]) ? $parsed["verifiedSources"] : ["Google Gemini 2.0 Multimodal Knowledge Base", "Reuters Fact Check"],
             "crossSourceArticles" => $crossSourceData["crossSourceArticles"] ?? [],
             "multiSourceConsensus" => $crossSourceData["consensus"] ?? [],
@@ -323,7 +321,7 @@ PROMPT;
                 "domain" => ($format === "URL" && $parsedArticle) ? parse_url($parsedArticle["url"], PHP_URL_HOST) : "gemini.ai",
                 "tier" => $isReal ? "ACCREDITED_WIRE" : "QUESTIONABLE",
                 "factuality" => $isReal ? "VERY_HIGH" : "VERY_LOW",
-                "credibilityScore" => $isReal ? 92 : 18
+                "credibilityScore" => $forensicMetrics["credibility"] ?? ($isReal ? 92 : 18)
             ],
             "entityAudit" => [
                 "isContradiction" => !$isReal,
@@ -332,6 +330,37 @@ PROMPT;
             "engine" => $engineName,
             "geminiReasoningEngine" => $engineName,
             "formatType" => $format
+        ];
+    }
+
+    /**
+     * Dynamically computes forensic and linguistic stylometric metrics from input text
+     */
+    public static function computeForensicMetrics(string $text, bool $isReal): array {
+        $textLower = strtolower($text);
+        $words = preg_split('/\s+/', trim($textLower));
+        $wordCount = max(1, count($words));
+
+        $sensationalMatches = preg_match_all('/\b(shocking|miracle|secret|unbelievable|banned|cure|exposed|breaking|bombshell|insane)\b/i', $textLower);
+        $urgencyMatches = preg_match_all('/\b(forward|share|immediately|urgent|hurry|alert|warning|before it is deleted)\b/i', $textLower);
+        $fearMatches = preg_match_all('/\b(deadly|fatal|danger|poison|toxic|perish|apocalypse|catastrophe|destroy)\b/i', $textLower);
+        $biasMatches = preg_match_all('/\b(100%|guaranteed|proven fact|undeniable|always|never|completely)\b/i', $textLower);
+        $numberMatches = preg_match_all('/\b\d+(\.\d+)?%?\b/', $text);
+
+        $sensationalism = min(100, max(5, (int)(($sensationalMatches / $wordCount) * 120 + ($isReal ? 8 : 55))));
+        $urgency = min(100, max(5, (int)(($urgencyMatches / $wordCount) * 150 + ($isReal ? 5 : 50))));
+        $fear = min(100, max(5, (int)(($fearMatches / $wordCount) * 140 + ($isReal ? 4 : 45))));
+        $bias = min(100, max(5, (int)(($biasMatches / $wordCount) * 100 + ($isReal ? 6 : 58))));
+        $evidenceDensity = min(100, max(5, (int)(($numberMatches / $wordCount) * 150 + ($isReal ? 75 : 12))));
+        $credibility = min(100, max(10, 100 - (int)(($sensationalism * 0.4) + ($urgency * 0.3) + ($fear * 0.3))));
+
+        return [
+            "sensationalism" => $sensationalism,
+            "urgency" => $urgency,
+            "credibility" => $credibility,
+            "evidenceDensity" => $evidenceDensity,
+            "fearLevel" => $fear,
+            "biasLevel" => $bias
         ];
     }
 
