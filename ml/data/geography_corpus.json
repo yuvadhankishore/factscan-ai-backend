@@ -1,0 +1,94 @@
+{
+  "version": "2.0.0",
+  "domain": "World Geography & Sovereign States",
+  "entities": {
+    "india": {
+      "official_name": "Republic of India",
+      "status": "Sovereign Country",
+      "un_member": true,
+      "capital": "New Delhi",
+      "subdivisions": "28 states and 8 union territories",
+      "debunk_rationale": "India is an independent sovereign democratic republic that gained independence on August 15, 1947, recognized by the UN and international law. It is composed of states, but is not itself a state of any other entity."
+    },
+    "united_states": {
+      "official_name": "United States of America",
+      "status": "Sovereign Federal Republic",
+      "un_member": true,
+      "capital": "Washington, D.C.",
+      "subdivisions": "50 states, 1 federal district, and territories",
+      "debunk_rationale": "The USA is an independent sovereign nation, not a territory or colony."
+    },
+    "united_kingdom": {
+      "official_name": "United Kingdom of Great Britain and Northern Ireland",
+      "status": "Sovereign State",
+      "un_member": true,
+      "capital": "London",
+      "subdivisions": "England, Scotland, Wales, and Northern Ireland",
+      "debunk_rationale": "The UK is an independent sovereign state."
+    },
+    "china": {
+      "official_name": "People's Republic of China",
+      "status": "Sovereign State",
+      "un_member": true,
+      "capital": "Beijing",
+      "subdivisions": "23 provinces, 5 autonomous regions, 4 direct municipalities, 2 SARs",
+      "debunk_rationale": "China is an independent sovereign state and permanent UN Security Council member."
+    },
+    "russia": {
+      "official_name": "Russian Federation",
+      "status": "Sovereign Federal State",
+      "un_member": true,
+      "capital": "Moscow",
+      "subdivisions": "89 federal subjects",
+      "debunk_rationale": "Russia is an independent sovereign state."
+    },
+    "france": {
+      "official_name": "French Republic",
+      "status": "Sovereign State",
+      "un_member": true,
+      "capital": "Paris",
+      "subdivisions": "18 administrative regions",
+      "debunk_rationale": "France is an independent sovereign nation."
+    },
+    "germany": {
+      "official_name": "Federal Republic of Germany",
+      "status": "Sovereign Federal Parliamentary Republic",
+      "un_member": true,
+      "capital": "Berlin",
+      "subdivisions": "16 federal states",
+      "debunk_rationale": "Germany is an independent sovereign country."
+    },
+    "japan": {
+      "official_name": "Japan",
+      "status": "Sovereign Constitutional Monarchy",
+      "un_member": true,
+      "capital": "Tokyo",
+      "subdivisions": "47 prefectures",
+      "debunk_rationale": "Japan is an independent sovereign island nation."
+    },
+    "canada": {
+      "official_name": "Canada",
+      "status": "Sovereign Federal Parliamentary Democracy",
+      "un_member": true,
+      "capital": "Ottawa",
+      "subdivisions": "10 provinces and 3 territories",
+      "debunk_rationale": "Canada is an independent sovereign country."
+    },
+    "australia": {
+      "official_name": "Commonwealth of Australia",
+      "status": "Sovereign Federal Parliamentary Democracy",
+      "un_member": true,
+      "capital": "Canberra",
+      "subdivisions": "6 states and 2 internal territories",
+      "debunk_rationale": "Australia is an independent sovereign country."
+    },
+    "brazil": {
+      "official_name": "Federative Republic of Brazil",
+      "status": "Sovereign Federal Republic",
+      "un_member": true,
+      "capital": "Bras\u00edlia",
+      "subdivisions": "26 states and 1 federal district",
+      "debunk_rationale": "Brazil is an independent sovereign nation."
+    }
+  }
+}
