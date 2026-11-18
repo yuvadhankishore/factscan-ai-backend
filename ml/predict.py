@@ -51,23 +51,24 @@ VIRAL_HOAX_REGISTRY = [
     (r"\b(cure[sd]?|curing)\s+cancer\b", "Fabricated cancer cure claim lacking clinical trial evidence", "Medical"),
     (r"\b(lemon\s+juice|baking\s+soda|garlic|papaya\s+leaf|onion\s+in\s+socks)\b.*\b(cure[sd]?|prevent[sd]?)\b", "Unverified home remedy purported as clinical therapy", "Medical"),
     (r"\b(chlorine\s+dioxide|drinking\s+bleach|miracle\s+mineral)\b", "Hazardous toxic chemical falsely promoted as medicine", "Medical"),
-    (r"\b(microchip|5g|magnet(ic)?|tracker)\b.*\b(vaccin|vaccine|jab|shot)\b", "Debunked vaccine conspiracy theory", "Medical"),
+    (r"\b(microchips?|5g|magnet(ic)?|trackers?)\b.*\b(vaccin\w*|jab|shot)\b|\b(vaccin\w*|jab|shot)\b.*\b(microchips?|5g|magnet(ic)?|trackers?)\b", "Debunked vaccine conspiracy theory", "Medical"),
     (r"\b(5g\s+(towers?|networks?|radiation))\b.*\b(covid|coronavirus|cardiac|cancer)\b", "Disproven cellular electromagnetic health scare", "Technology"),
     (r"\b(paracetamol|crocin|p[\s-]?500)\b.*\b(virus|deadly|poison)\b", "Recurrent social media pharmaceutical hoax", "Medical"),
     (r"\b(cure[sd]?|reverse[sd]?)\s+diabetes\s+in\s+(days?|hours?|weeks?)\b", "Fabricated metabolic cure contrary to medical science", "Medical"),
     
     # Astronomical / Planetary Hoaxes
-    (r"\b(earth|world)\s+will\s+go\s+dark\s+for\s+\d+\s+days\b", "Recurring planetary blackout hoax repeatedly debunked by NASA", "Astronomy"),
-    (r"\b(nasa\s+confirms?|nasa\s+warns?)\b.*\b(darkness|blackout|apocalypse|nibiru)\b", "Fictitious alert falsely attributed to NASA", "Astronomy"),
+    (r"\b(earth|world)\b.*\b(go\s+dark|darkness|blackout)\b|\b(six|three|\d+)\s+days\s+of\s+(darkness|total\s+darkness|blackout)\b", "Recurring planetary blackout hoax repeatedly debunked by NASA", "Astronomy"),
+    (r"\b(nasa\s+confirms?|nasa\s+warns?)\b.*\b(darkness|dark|blackout|apocalypse|nibiru)\b", "Fictitious alert falsely attributed to NASA", "Astronomy"),
     (r"\b(sun\s+will\s+rise\s+from\s+the\s+west|moon\s+turn\s+green)\b", "Planetary physics myth unsupported by celestial observation", "Astronomy"),
     (r"\b(gravity\s+will\s+(turn\s+off|cease|decrease\s+to\s+zero))\b", "Viral astronomical hoax distorting gravitational laws", "Astronomy"),
+    (r"\b(nibiru|planet\s*x)\b", "Fictitious apocalypse planetary collision myth", "Astronomy"),
     
     # Financial / Phishing Scams
     (r"\b(free\s+(50,?000|10,?000|laptop|smartphone|recharge|cash))\b", "Phishing scam lure designed for credential harvesting", "Financial"),
     (r"\b(modi|government|rbi)\s+(giving|distributing|credited)\s+free\b", "Non-existent government disbursement scam", "Financial"),
     (r"\b(forward\s+to\s+\d+\s+(people|friends|contacts|groups))\b", "Viral spam forwarding chain mechanism", "Social"),
     (r"\b(share\s+before\s+(it\s+is\s+)?deleted)\b", "Manufactured urgency tactic typical of viral disinformation", "Social"),
-    (r"\b(nano\s+gps\s+chip|gps\s+chip\s+in\s+(2000|500))\b", "Debunked currency tracking hoax dismissed by central banks", "Financial"),
+    (r"\b(nano[- ]?gps\s+(chip|tracking)|gps\s+chip)\b|\b(2000|500)\s*(rupee|notes?)\b.*\b(gps|chips?|tracker)\b", "Debunked currency tracking hoax dismissed by central banks", "Financial"),
     (r"\b(atm\s+pin\s+(backwards?|in\s+reverse))\b", "Fictitious emergency cash machine feature myth", "Financial"),
     (r"\b(\*#21#|dial\s+\*#\d+#)\b.*\b(listening|hacked|tapped)\b", "Standard network call-forwarding interrogation code misidentified as spyware alert", "Technology"),
     (r"\b(bank\s+account\s+(frozen|blocked|suspended)\s+unless\s+you\s+click)\b", "Urgent banking credential phishing scare", "Financial"),
@@ -282,23 +283,31 @@ def predict(text, check_cross_sources=True):
     # 0. Fast-Path Geopolitical & Entity Truth Verification
     entity_check = EntityFactChecker.verify_entity_claim(cleaned_text)
     if entity_check is not None:
+        entity_is_real = bool(entity_check.get("isReal", False))
         return {
             "success": True,
-            "isReal": entity_check["isReal"],
-            "verdict": "REAL" if entity_check["isReal"] else "FAKE",
-            "confidence": entity_check["confidence"],
-            "probabilities": {"real": 0.01, "fake": 0.99},
+            "isReal": entity_is_real,
+            "verdict": "REAL" if entity_is_real else "FAKE",
+            "confidence": entity_check.get("confidence", 99),
+            "probabilities": {
+                "real": 0.99 if entity_is_real else 0.01,
+                "fake": 0.01 if entity_is_real else 0.99
+            },
             "features": {
-                "sensationalismIndex": 0, "urgencyPanicLevel": 0, "institutionalAttribution": 0,
-                "vagueSpeculation": 0, "excessivePunctuation": 0, "factualNumericalDensity": 0,
+                "sensationalismIndex": 0, "urgencyPanicLevel": 0, "institutionalAttribution": 30 if entity_is_real else 0,
+                "vagueSpeculation": 0, "excessivePunctuation": 0, "factualNumericalDensity": 10 if entity_is_real else 0,
                 "lexicalDiversity": 100, "fearMongeringLevel": 0, "definitiveCertaintyBias": 0
             },
             "forensicMetrics": {
-                "sensationalism": 10, "urgency": 5, "credibility": 5,
-                "evidenceDensity": 10, "fearLevel": 0, "biasLevel": 15,
-                "corroboratedSources": []
+                "sensationalism": 5 if entity_is_real else 10,
+                "urgency": 5,
+                "credibility": 95 if entity_is_real else 5,
+                "evidenceDensity": 80 if entity_is_real else 10,
+                "fearLevel": 0,
+                "biasLevel": 5 if entity_is_real else 15,
+                "corroboratedSources": ["United Nations Sovereign Member Registry"] if entity_is_real else []
             },
-            "corroboratedSources": [],
+            "corroboratedSources": ["United Nations Sovereign Member Registry"] if entity_is_real else [],
             "crossSourceArticles": [
                 {
                     "publisher": "United Nations Official Registry",
@@ -306,7 +315,7 @@ def predict(text, check_cross_sources=True):
                     "title": f"Official Sovereign Profile: {entity_check.get('entity', cleaned_text)}",
                     "url": "https://www.un.org/en/about-us/member-states",
                     "snippet": f"Official records confirm {entity_check.get('entity', cleaned_text)} is a sovereign member state.",
-                    "stance": "REFUTES",
+                    "stance": "CORROBORATES" if entity_is_real else "REFUTES",
                     "similarity": 0.95,
                     "tier": "GOVERNMENT_OFFICIAL",
                     "credibility": 99.0
@@ -314,15 +323,20 @@ def predict(text, check_cross_sources=True):
             ],
             "multiSourceConsensus": {
                 "totalSources": 1,
-                "corroboratingCount": 0,
-                "refutingCount": 1,
+                "corroboratingCount": 1 if entity_is_real else 0,
+                "refutingCount": 0 if entity_is_real else 1,
                 "neutralCount": 0,
-                "consensusScore": 2.0,
-                "verdict": "DISPROVEN_BY_CONSENSUS",
+                "consensusScore": 98.0 if entity_is_real else 2.0,
+                "verdict": "HIGH_GLOBAL_CONSENSUS" if entity_is_real else "DISPROVEN_BY_CONSENSUS",
                 "summary": entity_check["summary"]
             },
             "atomicClaims": [
-                {"claimText": cleaned_text, "isSensational": False, "complexity": "Primary", "status": "DEBUNKED"}
+                {
+                    "claimText": cleaned_text,
+                    "isSensational": False,
+                    "complexity": "Primary",
+                    "status": "VERIFIED" if entity_is_real else "DEBUNKED"
+                }
             ],
             "quotationAudit": {
                 "directQuotesCount": 0, "extractedQuotes": [], "attributionPhrases": [],
@@ -330,14 +344,23 @@ def predict(text, check_cross_sources=True):
             },
             "temporalAudit": {
                 "detectedYears": [], "isRecycledOldNews": False, "hasBreakingFraming": False,
-                "currentBaselineYear": 2026, "temporalAuditExplanation": "Factual assertion contradiction."
+                "currentBaselineYear": 2026,
+                "temporalAuditExplanation": "Sovereign geopolitical status authenticated." if entity_is_real else "Factual assertion contradiction."
             },
             "topFeatureIndicators": [],
-            "warningSignals": entity_check["warningSignals"],
-            "keyFindings": entity_check["keyFindings"],
-            "summary": entity_check["summary"],
-            "headline": entity_check["headline"],
-            "engine": entity_check["engine"]
+            "warningSignals": entity_check.get("warningSignals", []),
+            "keyFindings": entity_check.get("keyFindings", []),
+            "summary": entity_check.get("summary", ""),
+            "headline": entity_check.get("headline", cleaned_text),
+            "whyThisResult": entity_check.get("whyThisResult", "Corroborated by United Nations sovereign treaties." if entity_is_real else "Refuted by sovereign treaties."),
+            "verdictJustification": entity_check.get("verdictJustification", entity_check.get("summary", "")),
+            "reasoningSteps": [
+                f"Step 1: Queried UN Sovereign Member State Directory for '{entity_check.get('entity', cleaned_text)}'.",
+                f"Step 2: Cross-referenced predicate classification against constitutional status.",
+                f"Step 3: Confirmed {'alignment with' if entity_is_real else 'contradiction of'} international sovereign law."
+            ],
+            "authoritativeCitations": ["United Nations Member States Registry", "Constitution of Sovereign State"],
+            "engine": entity_check.get("engine", "geopolitical_entity_verifier")
         }
 
     # 0.1 Fast-Path Medical & Scientific Consensus Verification
