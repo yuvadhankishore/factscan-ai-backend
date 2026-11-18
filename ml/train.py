@@ -65,6 +65,14 @@ def load_dataset(file_path):
         raise FileNotFoundError(f"Dataset file not found: {file_path}")
 
     df = pd.read_csv(file_path)
+    sample_path = os.path.join(DATA_DIR, "sample_dataset.csv")
+    if os.path.exists(sample_path) and os.path.abspath(sample_path) != os.path.abspath(file_path):
+        try:
+            df_sample = pd.read_csv(sample_path)
+            df = pd.concat([df, df_sample], ignore_index=True).drop_duplicates()
+            print(f"[+] Merged sample_dataset.csv into training set (Total rows: {len(df)})")
+        except Exception as e:
+            print(f"[!] Note: Could not merge sample_dataset: {e}")
 
     # Detect text columns
     text_col = None

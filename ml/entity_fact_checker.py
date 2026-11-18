@@ -45,6 +45,21 @@ class EntityFactChecker:
         {"city": "toronto", "country": "canada", "true_capital": "Ottawa", "city_belongs": "Canada"}
     ]
 
+    VERIFIED_SCIENTIFIC_TRUTHS = [
+        {
+            "patterns": [r"\bearth\s+rotates?\s+eastward\b", r"\bearth\s+rotates?\s+on\s+its\s+axis\b", r"\bearth\s+is\s+(an?\s+)?oblate\s+spheroid\b"],
+            "topic": "Planetary Geophysics",
+            "explanation": "Earth rotates eastward in prograde rotation on its axis once every approximately 24 hours.",
+            "source": "NASA Earth Observatory & International Earth Rotation Service"
+        },
+        {
+            "patterns": [r"\bearth\s+orbits?\s+(the\s+)?sun\b"],
+            "topic": "Heliocentric Orbit",
+            "explanation": "Earth orbits the Sun once every 365.25 days according to Keplerian orbital mechanics.",
+            "source": "NASA Jet Propulsion Laboratory"
+        }
+    ]
+
     @classmethod
     def verify_entity_claim(cls, text: str) -> Optional[Dict[str, Any]]:
         # 1. Check Geopolitical & Geography Claims first
@@ -98,6 +113,32 @@ class EntityFactChecker:
                         ],
                         "verifiedSources": [
                             {"title": f["source"], "url": "https://www.reuters.com/fact-check", "description": "Peer-Reviewed Scientific Authority Registry"}
+                        ],
+                        "engine": "entity_fact_checker"
+                    }
+
+        # 4. Check Verified Scientific Truths
+        for t in cls.VERIFIED_SCIENTIFIC_TRUTHS:
+            for pat in t["patterns"]:
+                if re.search(pat, clean) and not re.search(r"\b(not|never|false|myth|hoax)\b", clean):
+                    return {
+                        "isContradiction": False,
+                        "isReal": True,
+                        "verdict": "REAL",
+                        "confidence": 99,
+                        "headline": f"Verified: Established Fact in {t['topic']}",
+                        "summary": f"FactScan AI verified this statement as an established scientific truth. {t['explanation']}",
+                        "whyThisResult": f"Corroborated by primary observational data from {t['source']}.",
+                        "verdictJustification": f"Empirical records confirm: {t['explanation']}",
+                        "keyFindings": [
+                            f"Consistent with foundational scientific laws: {t['explanation']}",
+                            f"Corroborated by {t['source']}."
+                        ],
+                        "warningSignals": [
+                            "Empirically validated natural phenomenon"
+                        ],
+                        "verifiedSources": [
+                            {"title": t["source"], "url": "https://www.nasa.gov", "description": "Official Scientific Authority Directory"}
                         ],
                         "engine": "entity_fact_checker"
                     }

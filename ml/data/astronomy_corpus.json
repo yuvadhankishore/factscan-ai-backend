@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "domain": "Astronomy, Space & Planetary Science",
+  "claims": [
+    {
+      "trigger_keywords": [
+        "earth will go dark",
+        "six days of darkness",
+        "3 days of darkness",
+        "nasa confirms blackout"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Solar and orbital physics confirm Earth cannot experience global darkness for multiple consecutive days.",
+      "why_this_result": "Earth continues rotating continuously on its axis relative to the Sun; total solar eclipses only darken narrow geographic swaths for mere minutes.",
+      "scientific_authorities": [
+        "NASA Science Directorate",
+        "European Space Agency",
+        "International Astronomical Union"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "sun rise from west",
+        "sun rising in the west"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Earth rotates eastward in an invariant prograde direction determined by planetary conservation of angular momentum.",
+      "why_this_result": "Reversing planetary rotation would require catastrophic kinetic impact with a planetary mass body, which has not occurred.",
+      "scientific_authorities": [
+        "NASA",
+        "Royal Astronomical Society",
+        "ESA"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "moon turn green",
+        "green moon phenomenon"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 98,
+      "summary": "The Moon's regolith surface reflects sunlight without chromatic filtering to green; lunar surface remains grey-brown basaltic and anorthositic rock.",
+      "why_this_result": "Astronomical ephemerides and spectroscopic data confirm optical properties of lunar reflection contain zero green wavelength emissions.",
+      "scientific_authorities": [
+        "NASA Lunar Reconnaissance Orbiter",
+        "ISRO Chandrayaan",
+        "ESA"
+      ]
+    }
+  ]
+}

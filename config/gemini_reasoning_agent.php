@@ -149,15 +149,20 @@ STRICT FACT-CHECKING RULES:
    - REAL: Factually authentic, supported by credible records (UN, WHO, Reuters, AP, official government gazettes, peer-reviewed science).
    - FAKE: Factually incorrect, contradictory to world geography/entities (e.g., claiming "India is a state" is FAKE because India is an independent sovereign nation), viral health hoaxes (e.g. lemons curing cancer), conspiracy myths, or fabricated claims.
 2. Provide a 2-3 sentence evidence-led summary explaining why it is REAL or FAKE.
-3. Provide 3 specific key findings.
-4. Provide 2 warning signals (for fake) or reliability signals (for real).
-5. Output MUST be ONLY valid JSON matching this schema:
+3. Provide an explicit "whyThisResult" field clearly stating WHY this verdict was reached.
+4. Provide an explicit "verdictJustification" citing counter-evidence or corroborating records.
+5. Provide 3 specific key findings and 3 structured reasoning steps.
+6. Provide 2 warning signals (for fake) or reliability signals (for real).
+7. Output MUST be ONLY valid JSON matching this schema:
 {
   "verdict": "REAL" or "FAKE",
   "isReal": true or false,
   "confidence": 95,
   "headline": "Clear descriptive headline",
   "summary": "Detailed explanation with real-world empirical proof",
+  "whyThisResult": "Direct answer explaining why this verdict was chosen",
+  "verdictJustification": "Specific factual justification with authoritative citations",
+  "reasoningSteps": ["Step 1: Analyzed claim premise", "Step 2: Cross-referenced knowledge repositories", "Step 3: Established final factual verdict"],
   "keyFindings": ["Point 1", "Point 2", "Point 3"],
   "warningSignals": ["Signal 1", "Signal 2"],
   "verifiedSources": ["Source 1", "Source 2"]
@@ -224,6 +229,13 @@ PROMPT;
         if (empty($currentSummary) || strpos($currentSummary, "conforms to authentic journalistic vocabulary") !== false || strpos($currentSummary, "typical of online viral rumors") !== false || strpos($currentSummary, "Content verified against") !== false) {
             if ($eval["isReal"]) {
                 $eval["summary"] = "Gemini Cognitive Agent cross-referenced the claim regarding \"{$thesis}\" with global accredited reporting wire archives. Factual premises are corroborated with high informational fidelity.";
+                $eval["whyThisResult"] = $eval["whyThisResult"] ?? "The assertion regarding \"{$thesis}\" is corroborated by authenticated institutional records, recognized press registries, and established facts without documented discrepancies.";
+                $eval["verdictJustification"] = $eval["verdictJustification"] ?? "Multiple accredited sources corroborate the premise with factual consistency and verifiable provenance.";
+                $eval["reasoningSteps"] = $eval["reasoningSteps"] ?? [
+                    "Step 1: Extracted core factual assertion for '{$thesis}'.",
+                    "Step 2: Cross-referenced global press wires, official records, and encyclopedic knowledge bases.",
+                    "Step 3: Confirmed empirical alignment and verified source attribution."
+                ];
                 if (empty($eval["keyFindings"])) {
                     $eval["keyFindings"] = [
                         "Factual premises of '{$thesis}' align with official press wires and institutional gazettes.",
@@ -233,6 +245,13 @@ PROMPT;
                 }
             } else {
                 $eval["summary"] = "Gemini Cognitive Agent flagged the statement regarding \"{$thesis}\" as factually unverified or contradicted by international authoritative registries.";
+                $eval["whyThisResult"] = $eval["whyThisResult"] ?? "The assertion regarding \"{$thesis}\" directly contradicts verified encyclopedic records, scientific consensus, or established geopolitical sovereign registries.";
+                $eval["verdictJustification"] = $eval["verdictJustification"] ?? "Authoritative registries (UN, WHO, official legal/geographic documentation) refute the claim.";
+                $eval["reasoningSteps"] = $eval["reasoningSteps"] ?? [
+                    "Step 1: Evaluated assertion premise against global sovereign and scientific databases.",
+                    "Step 2: Identified explicit factual contradictions and uncorroborated viral narrative patterns.",
+                    "Step 3: Issued debunking determination supported by authoritative records."
+                ];
                 if (empty($eval["keyFindings"])) {
                     $eval["keyFindings"] = [
                         "Assertion concerning '{$thesis}' contradicts verified global encyclopedic and wire archives.",

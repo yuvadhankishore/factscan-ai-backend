@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "domain": "Economy, Finance & Banking",
+  "claims": [
+    {
+      "trigger_keywords": [
+        "gps chip in 2000",
+        "nano gps chip in currency",
+        "satellite tracking in note"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Currency banknotes are made of cotton-rag substrate and contain no electronic microchips, antennas, or GPS transmitters.",
+      "why_this_result": "GPS technology requires power sources (batteries), satellite receivers, and radio antennas, none of which physically fit or function in paper banknotes.",
+      "scientific_authorities": [
+        "Reserve Bank of India",
+        "Federal Reserve",
+        "European Central Bank"
+      ]
+    },
+    {
+      "trigger_keywords": [
+        "atm pin backwards",
+        "enter pin reverse police",
+        "reverse pin calls cops"
+      ],
+      "verdict": "FAKE",
+      "is_real": false,
+      "confidence": 99,
+      "summary": "Entering your ATM PIN in reverse does not alert police or dispense cash while locking the machine.",
+      "why_this_result": "Banking security systems simply register an incorrect PIN attempt and decline the transaction after 3 tries; reverse-PIN alert does not exist.",
+      "scientific_authorities": [
+        "Federal Trade Commission",
+        "American Bankers Association",
+        "Bank Security Protocols"
+      ]
+    }
+  ]
+}
