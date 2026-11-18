@@ -296,27 +296,22 @@ echo json_encode([
         "summary" => $result["summary"],
         "keyFindings" => is_array($result["keyFindings"]) ? array_values($result["keyFindings"]) : [],
         "warningSignals" => is_array($result["warningSignals"]) ? array_values($result["warningSignals"]) : [],
-        "forensicMetrics" => $result["forensicMetrics"] ?? [
-            "sensationalism" => $result["isReal"] ? 8 : 72,
-            "urgency" => $result["isReal"] ? 5 : 65,
-            "credibility" => $result["isReal"] ? 92 : 18,
-            "evidenceDensity" => $result["isReal"] ? 68 : 12,
-            "fearLevel" => $result["isReal"] ? 4 : 58,
-            "biasLevel" => $result["isReal"] ? 6 : 70
-        ],
+        "forensicMetrics" => (!empty($result["forensicMetrics"]) && is_array($result["forensicMetrics"]))
+            ? $result["forensicMetrics"]
+            : GeminiReasoningAgent::computeForensicMetrics($input, (bool)$result["isReal"]),
         "corroboratedSources" => is_array($result["corroboratedSources"] ?? null) ? $result["corroboratedSources"] : [],
         "verifiedSources" => $normVerifiedSources,
         "crossSourceArticles" => is_array($result["crossSourceArticles"] ?? null) ? $result["crossSourceArticles"] : [],
-        "multiSourceConsensus" => is_array($result["multiSourceConsensus"] ?? null) ? $result["multiSourceConsensus"] : [
-            "consensusScore" => $result["isReal"] ? 88.5 : 14.2,
-            "corroboratingCount" => $result["isReal"] ? 4 : 0,
-            "refutingCount" => $result["isReal"] ? 0 : 3,
-            "neutralCount" => 1,
-            "consensusVerdict" => $result["isReal"] ? "HIGH_GLOBAL_CONSENSUS" : "DISPROVEN_BY_CONSENSUS",
-            "summary" => $result["isReal"] 
-                ? "Multiple independent international news organizations corroborate this reporting." 
-                : "Primary wire agencies and verified fact-checkers explicitly refute or lack corroboration for this claim."
-        ],
+        "multiSourceConsensus" => (!empty($result["multiSourceConsensus"]) && is_array($result["multiSourceConsensus"]))
+            ? $result["multiSourceConsensus"]
+            : [
+                "consensusScore" => (bool)$result["isReal"] ? (float)$result["confidence"] : round(100.0 - (float)$result["confidence"], 1),
+                "corroboratingCount" => (bool)$result["isReal"] ? max(1, count($normVerifiedSources)) : 0,
+                "refutingCount" => (bool)$result["isReal"] ? 0 : max(1, count($result["warningSignals"] ?? [])),
+                "neutralCount" => 0,
+                "consensusVerdict" => (bool)$result["isReal"] ? "HIGH_GLOBAL_CONSENSUS" : "DISPROVEN_BY_CONSENSUS",
+                "summary" => $result["summary"]
+            ],
         "atomicClaims" => is_array($result["atomicClaims"] ?? null) ? $result["atomicClaims"] : [],
         "quotationAudit" => is_array($result["quotationAudit"] ?? null) ? $result["quotationAudit"] : [
             "quotesFound" => 0,

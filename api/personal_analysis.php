@@ -159,7 +159,7 @@ try {
     $patternsList = [];
     $totalFakeAnalyses = max(1, $fakeCount);
     foreach ($patternCategories as $title => $cnt) {
-        if ($cnt > 0 || $totalAnalyzed === 0) {
+        if ($cnt > 0) {
             $progress = round(min(1.0, $cnt / $totalFakeAnalyses), 2);
             $patternsList[] = [
                 "title" => $title,
@@ -168,15 +168,6 @@ try {
                 "progress" => $progress
             ];
         }
-    }
-
-    // Default friendly patterns if user has zero fakes yet
-    if (empty($patternsList)) {
-        $patternsList = [
-            ["title" => "Missing primary sources", "count" => 0, "label" => "0 checks", "progress" => 0.0],
-            ["title" => "Sensational headlines & urgency", "count" => 0, "label" => "0 checks", "progress" => 0.0],
-            ["title" => "Unsubstantiated viral claims", "count" => 0, "label" => "0 checks", "progress" => 0.0]
-        ];
     }
 
     // 4. Personalized AI Checking Habits Insight Summary

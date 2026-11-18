@@ -25,23 +25,32 @@ if ($conn) {
         $dbRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($dbRows as $row) {
             $signals = json_decode($row["warning_signals"] ?? "[]", true);
+            $sources = json_decode($row["verified_sources"] ?? "[]", true);
+            $sourceCount = is_array($sources) ? count($sources) : 0;
+            $signalCount = is_array($signals) ? count($signals) : 0;
             $isReal = (bool)$row["is_real"];
+            $conf = (int)$row["confidence"];
+
+            $corroboratingCount = $isReal ? max(1, $sourceCount) : 0;
+            $refutingCount = $isReal ? 0 : max(1, $signalCount);
+            $consensusScore = $isReal ? (float)$conf : round(100.0 - (float)$conf, 1);
+
             $trendingItems[] = [
                 "id" => (int)$row["id"],
                 "headline" => $row["headline"],
                 "publisher" => $row["publisher"] ?: "FactScan AI Registry",
                 "verdict" => $isReal ? "REAL" : "FAKE",
                 "isReal" => $isReal,
-                "confidence" => (int)$row["confidence"],
+                "confidence" => $conf,
                 "summary" => $row["summary"],
                 "category" => "Recent Check",
                 "keyFindings" => is_array($signals) ? array_slice($signals, 0, 3) : [],
                 "timestamp" => date("M d, Y", strtotime($row["created_at"])),
-                "corroboratingCount" => $isReal ? 4 : 0,
-                "refutingCount" => $isReal ? 0 : 3,
-                "consensusScore" => $isReal ? 91.5 : 14.0,
+                "corroboratingCount" => $corroboratingCount,
+                "refutingCount" => $refutingCount,
+                "consensusScore" => $consensusScore,
                 "consensusVerdict" => $isReal ? "HIGH_GLOBAL_CONSENSUS" : "DISPROVEN_BY_CONSENSUS",
-                "multiSourceSummary" => $isReal ? "Corroborated across accredited global wire services." : "Explicitly refuted by independent fact-checking databases."
+                "multiSourceSummary" => $row["summary"]
             ];
         }
     } catch (PDOException $e) {
