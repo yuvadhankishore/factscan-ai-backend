@@ -482,21 +482,31 @@ class FactCheckEngine {
         if (empty($text)) {
             return "submitted content";
         }
-        // Strip common prefixes
-        $clean = preg_replace('/^(breaking news|claim|fact check|breaking|news|alert|urgent):\s*/i', '', $text);
-        if (mb_strlen($clean) <= 80) {
+        // Strip common query preambles, URLs, and news tags
+        $clean = preg_replace('/^(https?:\/\/\S+|breaking news|fact check|claim|alert|urgent|is it true that|did|can|does|check if)\s*:?\s*/i', '', $text);
+        $clean = trim($clean, " \t\n\r\0\x0B\"'“”‘’");
+        if (mb_strlen($clean) <= 90) {
             return $clean;
         }
+
+        // Extract first coherent sentence or clause
         $firstSentence = preg_split('/(?<=[.!?])\s+/', $clean, 2)[0] ?? $clean;
-        if (mb_strlen($firstSentence) <= 85) {
-            return $firstSentence;
+        if (mb_strlen($firstSentence) <= 95) {
+            return trim($firstSentence, " \t\n\r\0\x0B\"'“”‘’");
         }
-        $truncated = mb_substr($firstSentence, 0, 80);
+
+        // Break on semicolons or dashes if present
+        $parts = preg_split('/[;—–\-]/', $firstSentence);
+        if (!empty($parts[0]) && mb_strlen($parts[0]) >= 20 && mb_strlen($parts[0]) <= 90) {
+            return trim($parts[0], " \t\n\r\0\x0B\"'“”‘’");
+        }
+
+        $truncated = mb_substr($firstSentence, 0, 85);
         $lastSpace = mb_strrpos($truncated, ' ');
-        if ($lastSpace !== false && $lastSpace > 30) {
-            return mb_substr($truncated, 0, $lastSpace) . '...';
+        if ($lastSpace !== false && $lastSpace > 35) {
+            return trim(mb_substr($truncated, 0, $lastSpace)) . '...';
         }
-        return $truncated . '...';
+        return trim($truncated) . '...';
     }
 
     /**
