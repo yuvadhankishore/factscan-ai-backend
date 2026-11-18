@@ -5,6 +5,12 @@
  * Analyzes news in all formats (Text, URL, Document, Image, Audio) and classifies REAL or FAKE.
  */
 
+ini_set('display_errors', '0');
+error_reporting(0);
+if (ob_get_level() === 0) {
+    ob_start();
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
