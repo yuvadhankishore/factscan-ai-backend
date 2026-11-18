@@ -107,9 +107,26 @@ PSEUDOSCIENCE_PATTERNS = [
     r"\b(big\s+pharma\s+(conspiracy|hiding\s+the\s+cure))\b"
 ]
 
+EPISTEMIC_HEDGING_TERMS = {
+    "indicated", "indicates", "suggests", "suggested", "estimated", "estimates",
+    "projected", "preliminary", "investigation", "assessing", "analysts",
+    "spokesperson", "tentative", "provisional", "consensus", "peer-reviewed",
+    "approximate", "approximately", "potential", "potentially", "apparent",
+    "apparently", "subject to", "confirmed by", "corroborated"
+}
+
+VIRAL_CTA_PATTERNS = [
+    r"\b(click\s+(here|the\s+link|below))\b",
+    r"\b(share\s+(now|this|with|to))\b",
+    r"\b(forward\s+(this|to|immediately))\b",
+    r"\b(subscribe\s+to\s+get|follow\s+for\s+more)\b",
+    r"\b(don'?t\s+forget\s+to\s+share)\b",
+    r"\b(drop\s+a\s+comment|tag\s+your\s+friends?)\b"
+]
+
 class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
     """
-    Extracts 12 high-signal stylistic, linguistic, and credibility features
+    Extracts 14 high-signal stylistic, linguistic, and credibility features
     from raw news claims and articles for advanced NLP classification.
     """
     def __init__(self):
@@ -176,6 +193,14 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
         pseudo_count = sum(1 for pat in PSEUDOSCIENCE_PATTERNS if re.search(pat, text_lower))
         bias_score = min(1.0, (bias_count * 0.35) + (pseudo_count * 0.45))
 
+        # 12. Epistemic Modality & Measured Hedging
+        hedging_count = sum(1 for w in words if w in EPISTEMIC_HEDGING_TERMS)
+        hedging_score = min(1.0, (hedging_count / total_words) * 6.0)
+
+        # 13. Deceptive Viral Call-To-Action Density
+        cta_matches = sum(1 for pat in VIRAL_CTA_PATTERNS if re.search(pat, text_lower))
+        cta_score = min(1.0, cta_matches * 0.4)
+
         return [
             sensational_score,
             urgency_score,
@@ -188,7 +213,9 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
             norm_len,
             quote_score,
             fear_score,
-            bias_score
+            bias_score,
+            hedging_score,
+            cta_score
         ]
 
     def transform(self, X):
@@ -208,5 +235,7 @@ class LinguisticFeatureExtractor(BaseEstimator, TransformerMixin):
             "factualNumericalDensity": int(round(feats[6] * 100)),
             "lexicalDiversity": int(round(feats[7] * 100)),
             "fearMongeringLevel": int(round(feats[10] * 100)),
-            "definitiveCertaintyBias": int(round(feats[11] * 100))
+            "definitiveCertaintyBias": int(round(feats[11] * 100)),
+            "epistemicModality": int(round(feats[12] * 100)),
+            "viralCtaDensity": int(round(feats[13] * 100))
         }

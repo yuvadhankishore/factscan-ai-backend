@@ -32,6 +32,18 @@ from viral_rumor_verifier import check_viral_rumors
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
 
+_CACHED_PIPELINE = None
+
+def get_pipeline():
+    global _CACHED_PIPELINE
+    if _CACHED_PIPELINE is None and os.path.exists(MODEL_PATH):
+        try:
+            import joblib
+            _CACHED_PIPELINE = joblib.load(MODEL_PATH)
+        except Exception:
+            _CACHED_PIPELINE = None
+    return _CACHED_PIPELINE
+
 # Documented viral disinformation patterns
 VIRAL_HOAX_REGISTRY = [
     # Medical Hoaxes
@@ -68,7 +80,7 @@ VIRAL_HOAX_REGISTRY = [
     (r"\b(drinking\s+(hot\s+water|boiled\s+ginger|warm\s+lemon)\s+kills\s+(all\s+)?viruses?)\b", "Unfounded medical home remedy falsely claiming viral elimination", "Medical"),
     (r"\b(drinking\s+water\s+from\s+plastic\s+bottles?\s+in\s+cars?\s+causes\s+cancer)\b", "Recurrent social media chemical scare dismissed by oncology registries", "Medical"),
     (r"\b(chemtrails?\s+(poisoning|spraying|mind\s+control|weather\s+weapon))\b", "Long-standing aerosol conspiracy debunked by atmospheric scientists", "Environment"),
-    (r"\b(flat\s+earth|ice\s+wall\s+at\s+antarctica|antarctic\s+dome)\b", "Disproven flat-earth pseudo-geography contrary to satellite geodesy", "Science"),
+    (r"\b(flat\s+earth|(antarcti[ca]|polar)\s+ice\s+wall|ice\s+wall\s+(at|around|in)?\s*antarctica|antarctic\s+dome)\b", "Disproven flat-earth pseudo-geography contrary to satellite geodesy", "Science"),
     (r"\b(mars\s+will\s+look\s+as\s+big\s+as\s+the\s+full\s+moon)\b", "Annual astronomical scale hoax regarding Martian optical size", "Astronomy"),
     (r"\b(government\s+(installing|mandating)\s+microphones?\s+in\s+light\s+bulbs)\b", "Surveillance conspiracy narrative without evidentiary basis", "Conspiracy")
 ]
@@ -510,12 +522,9 @@ def predict(text, check_cross_sources=True):
         # 2. Machine Learning Pipeline Inference
         prob_real = 0.50
         prob_fake = 0.50
-        has_model = os.path.exists(MODEL_PATH)
-
-        if has_model:
+        pipeline = get_pipeline()
+        if pipeline is not None:
             try:
-                import joblib
-                pipeline = joblib.load(MODEL_PATH)
                 proba = pipeline.predict_proba([cleaned_text])[0]
                 prob_fake = float(proba[0])
                 prob_real = float(proba[1])
@@ -529,12 +538,18 @@ def predict(text, check_cross_sources=True):
         fear = feats.get("fearMongeringLevel", 0)
         bias = feats.get("definitiveCertaintyBias", 0)
         evidence = feats.get("factualNumericalDensity", 0)
+        epistemic = feats.get("epistemicModality", 0)
+        viral_cta = feats.get("viralCtaDensity", 0)
         
         credibility_boost = 0.0
-        if insts and sensational < 15 and urgency < 10 and fear < 10:
+        has_conspiracy_leaks = bool(re.search(r"\b(leaked\s+classified|admits?\s+in\s+deathbed|whistleblowers?\s+leaked?|secret\s+coverup)\b", cleaned_text, re.IGNORECASE))
+        if insts and sensational < 15 and urgency < 10 and fear < 10 and not has_conspiracy_leaks:
             credibility_boost += 0.35 + (0.08 * len(insts))
             
-        if feats.get("institutionalAttribution", 0) > 20 and sensational < 15:
+        if feats.get("institutionalAttribution", 0) > 20 and sensational < 15 and not has_conspiracy_leaks:
+            credibility_boost += 0.15
+
+        if epistemic >= 20 and sensational < 15 and not has_conspiracy_leaks:
             credibility_boost += 0.15
 
         if consensus_result.get("verdict") == "STRONGLY_CORROBORATED":
@@ -557,12 +572,14 @@ def predict(text, check_cross_sources=True):
             penalty += 0.22
         if bias >= 25:
             penalty += 0.20
+        if viral_cta >= 15:
+            penalty += 0.22
             
         calibrated_real = max(0.02, min(0.98, prob_real + credibility_boost - penalty))
         calibrated_fake = 1.0 - calibrated_real
 
         decision_threshold = 0.50
-        if sensational >= 20 or urgency >= 15 or fear >= 15:
+        if sensational >= 20 or urgency >= 15 or fear >= 15 or viral_cta >= 15:
             decision_threshold = 0.62
         elif bias >= 20:
             decision_threshold = 0.60
@@ -585,6 +602,10 @@ def predict(text, check_cross_sources=True):
         feature_indicators.append(f"Institutional credibility: {feats['institutionalAttribution']}% (Corroborated)")
     if feats.get("factualNumericalDensity", 0) > 10:
         feature_indicators.append(f"Numerical evidence density: {feats['factualNumericalDensity']}%")
+    if feats.get("epistemicModality", 0) > 20:
+        feature_indicators.append(f"Epistemic modality: {feats['epistemicModality']}% (Measured Journalistic Tone)")
+    if feats.get("viralCtaDensity", 0) > 15:
+        feature_indicators.append(f"Viral call-to-action pressure: {feats['viralCtaDensity']}% (High)")
 
     forensic_metrics = {
         "sensationalism": feats.get("sensationalismIndex", 0),
@@ -593,6 +614,8 @@ def predict(text, check_cross_sources=True):
         "evidenceDensity": feats.get("factualNumericalDensity", 0),
         "fearLevel": feats.get("fearMongeringLevel", 0),
         "biasLevel": feats.get("definitiveCertaintyBias", 0),
+        "epistemicModality": feats.get("epistemicModality", 0),
+        "viralCtaDensity": feats.get("viralCtaDensity", 0),
         "corroboratedSources": knowledge.get("institutions", [])
     }
 
