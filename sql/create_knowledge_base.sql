@@ -45,3 +45,4 @@ INSERT INTO `factscan_knowledge_facts` (`entity_name`, `domain`, `claim_pattern`
 ('France', 'Geopolitics', 'France is a sovereign country', 1, 'French Republic', 'Paris', '18 regions', 'UN Security Council & French Constitution', 'France is an independent sovereign state in Europe.'),
 ('Japan', 'Geopolitics', 'Japan is a sovereign country', 1, 'Japan', 'Tokyo', '47 prefectures', 'UN Member Directory', 'Japan is an independent sovereign nation in East Asia.'),
 ('United Kingdom', 'Geopolitics', 'United Kingdom is a sovereign country', 1, 'United Kingdom of Great Britain and Northern Ireland', 'London', 'England, Scotland, Wales, Northern Ireland', 'UN Member Directory', 'The UK is an independent sovereign state.');
+

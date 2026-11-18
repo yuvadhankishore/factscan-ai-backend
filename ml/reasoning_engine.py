@@ -208,3 +208,4 @@ class ReasoningEngine:
 
 def explain_claim(text: str, is_real: bool, confidence: int, matched_domain: str = None, category_name: str = None) -> dict:
     return ReasoningEngine.get_instance().evaluate_reasoning(text, is_real, confidence, matched_domain, category_name)
+
