@@ -106,5 +106,26 @@ class PythonAiBridge {
 
         return null;
     }
+
+    /**
+     * Request detailed step-by-step reasoning and justification for a claim
+     */
+    public static function explain(string $text): ?array {
+        $text = trim($text);
+        if ($text === "") {
+            return null;
+        }
+
+        $pred = self::predict($text);
+        if ($pred && !empty($pred["whyThisResult"])) {
+            return [
+                "whyThisResult" => $pred["whyThisResult"],
+                "verdictJustification" => $pred["verdictJustification"] ?? $pred["summary"] ?? "",
+                "reasoningSteps" => $pred["reasoningSteps"] ?? [],
+                "authoritativeCitations" => $pred["authoritativeCitations"] ?? []
+            ];
+        }
+        return null;
+    }
 }
 ?>
