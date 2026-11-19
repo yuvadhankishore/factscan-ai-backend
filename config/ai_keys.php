@@ -4,6 +4,10 @@
 
 if (!defined("FACTSCAN_GEMINI_API_KEY")) {
     $gKey = getenv("GEMINI_API_KEY") ?: "";
+    if (empty($gKey) && file_exists(dirname(__DIR__) . "/.env")) {
+        $env = @parse_ini_file(dirname(__DIR__) . "/.env");
+        $gKey = $env["GEMINI_API_KEY"] ?? "";
+    }
     if (empty($gKey) && file_exists(__DIR__ . "/.env")) {
         $env = @parse_ini_file(__DIR__ . "/.env");
         $gKey = $env["GEMINI_API_KEY"] ?? "";
@@ -12,11 +16,15 @@ if (!defined("FACTSCAN_GEMINI_API_KEY")) {
         $jsonKeys = @json_decode(file_get_contents(__DIR__ . "/ai_keys.json"), true);
         $gKey = $jsonKeys["GEMINI_API_KEY"] ?? "";
     }
-    define("FACTSCAN_GEMINI_API_KEY", $gKey);
+    define("FACTSCAN_GEMINI_API_KEY", trim($gKey));
 }
 
 if (!defined("FACTSCAN_OPENAI_API_KEY")) {
     $oKey = getenv("OPENAI_API_KEY") ?: "";
+    if (empty($oKey) && file_exists(dirname(__DIR__) . "/.env")) {
+        $env = @parse_ini_file(dirname(__DIR__) . "/.env");
+        $oKey = $env["OPENAI_API_KEY"] ?? "";
+    }
     if (empty($oKey) && file_exists(__DIR__ . "/.env")) {
         $env = @parse_ini_file(__DIR__ . "/.env");
         $oKey = $env["OPENAI_API_KEY"] ?? "";
@@ -25,7 +33,7 @@ if (!defined("FACTSCAN_OPENAI_API_KEY")) {
         $jsonKeys = @json_decode(file_get_contents(__DIR__ . "/ai_keys.json"), true);
         $oKey = $jsonKeys["OPENAI_API_KEY"] ?? "";
     }
-    define("FACTSCAN_OPENAI_API_KEY", $oKey);
+    define("FACTSCAN_OPENAI_API_KEY", trim($oKey));
 }
 ?>
 
