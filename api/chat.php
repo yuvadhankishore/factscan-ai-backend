@@ -1,8 +1,8 @@
 <?php
 /**
- * FactScan AI - Conversational AI Chat API (ChatGPT & Gemini Architecture)
+ * FactScan AI - Conversational Verification Assistant API
  * Supports multi-turn dialogue, open-ended QA, and real-time news/claim analysis
- * powered by Gemini Conversational LLM + Python ML Soft-Voting Ensemble CoPilot.
+ * powered by FactScan Conversational Engine & Neural Machine Learning Ensemble.
  */
 
 ini_set('display_errors', '0');
@@ -267,7 +267,7 @@ $response = [
     "isReal" => $claimEval["isReal"] ?? null,
     "confidence" => $claimEval["confidence"] ?? null,
     "warningSignals" => $claimEval["warningSignals"] ?? [],
-    "engine" => !empty($activeKey) ? "gemini_copilot_hybrid" : "factscan_ai_copilot",
+    "engine" => !empty($activeKey) ? "factscan_neural_copilot" : "factscan_ai_copilot",
     "articleMeta" => $articleMeta,
     "timestamp" => time()
 ];
