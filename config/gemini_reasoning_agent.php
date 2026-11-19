@@ -209,7 +209,7 @@ PROMPT;
         if (class_exists("PythonAiBridge")) {
             $pyResult = PythonAiBridge::predict($content);
             if ($pyResult && in_array($pyResult["engine"] ?? "", ["geopolitical_entity_verifier", "entity_fact_checker", "geopolitical_truth_validator"])) {
-                $pyResult["geminiReasoningEngine"] = "gemini_cognitive_geopolitical_resolver";
+                $pyResult["geminiReasoningEngine"] = "factscan_cognitive_geopolitical_resolver";
                 $pyResult["formatType"] = $format;
                 return $pyResult;
             }
@@ -228,7 +228,7 @@ PROMPT;
         $currentSummary = $eval["summary"] ?? "";
         if (empty($currentSummary) || strpos($currentSummary, "conforms to authentic journalistic vocabulary") !== false || strpos($currentSummary, "typical of online viral rumors") !== false || strpos($currentSummary, "Content verified against") !== false) {
             if ($eval["isReal"]) {
-                $eval["summary"] = "Gemini Cognitive Agent cross-referenced the claim regarding \"{$thesis}\" with global accredited reporting wire archives. Factual premises are corroborated with high informational fidelity.";
+                $eval["summary"] = "FactScan Cognitive Agent cross-referenced the claim regarding \"{$thesis}\" with global accredited reporting wire archives. Factual premises are corroborated with high informational fidelity.";
                 $eval["whyThisResult"] = $eval["whyThisResult"] ?? "The assertion regarding \"{$thesis}\" is corroborated by authenticated institutional records, recognized press registries, and established facts without documented discrepancies.";
                 $eval["verdictJustification"] = $eval["verdictJustification"] ?? "Multiple accredited sources corroborate the premise with factual consistency and verifiable provenance.";
                 $eval["reasoningSteps"] = $eval["reasoningSteps"] ?? [
@@ -244,7 +244,7 @@ PROMPT;
                     ];
                 }
             } else {
-                $eval["summary"] = "Gemini Cognitive Agent flagged the statement regarding \"{$thesis}\" as factually unverified or contradicted by international authoritative registries.";
+                $eval["summary"] = "FactScan Cognitive Agent flagged the statement regarding \"{$thesis}\" as factually unverified or contradicted by international authoritative registries.";
                 $eval["whyThisResult"] = $eval["whyThisResult"] ?? "The assertion regarding \"{$thesis}\" directly contradicts verified encyclopedic records, scientific consensus, or established geopolitical sovereign registries.";
                 $eval["verdictJustification"] = $eval["verdictJustification"] ?? "Authoritative registries (UN, WHO, official legal/geographic documentation) refute the claim.";
                 $eval["reasoningSteps"] = $eval["reasoningSteps"] ?? [
@@ -268,7 +268,7 @@ PROMPT;
         $eval["atomicClaims"] = $crossSourceData["atomicClaims"] ?? [];
         $eval["quotationAudit"] = $crossSourceData["quotationAudit"] ?? [];
         $eval["temporalAudit"] = $crossSourceData["temporalAudit"] ?? [];
-        $eval["geminiReasoningEngine"] = "gemini_cognitive_orchestrator";
+        $eval["geminiReasoningEngine"] = "factscan_cognitive_orchestrator";
         $eval["formatType"] = $format;
 
         // Ensure verdict is strictly REAL or FAKE
@@ -308,8 +308,8 @@ PROMPT;
         $summary = $parsed["summary"] ?? "";
         if (empty($summary) || strpos($summary, "Content verified against") !== false) {
             $summary = $isReal
-                ? "Gemini 2.0 Flash verified the claim regarding \"{$thesis}\". Corroborated across authoritative international datasets with high evidence confidence."
-                : "Gemini 2.0 Flash determined the claim regarding \"{$thesis}\" is factually unsupported or contradicts established real-world records.";
+                ? "FactScan Neural Engine verified the claim regarding \"{$thesis}\". Corroborated across authoritative international datasets with high evidence confidence."
+                : "FactScan Neural Engine determined the claim regarding \"{$thesis}\" is factually unsupported or contradicts established real-world records.";
         }
 
         // Dynamically compute forensic metrics from actual text if not provided by parsed JSON
@@ -330,7 +330,7 @@ PROMPT;
             "keyFindings" => !empty($parsed["keyFindings"]) && is_array($parsed["keyFindings"]) ? $parsed["keyFindings"] : ["Gemini multi-source cross reference completed."],
             "warningSignals" => !empty($parsed["warningSignals"]) && is_array($parsed["warningSignals"]) ? $parsed["warningSignals"] : [],
             "forensicMetrics" => $forensicMetrics,
-            "verifiedSources" => !empty($parsed["verifiedSources"]) && is_array($parsed["verifiedSources"]) ? $parsed["verifiedSources"] : ["Google Gemini 2.0 Multimodal Knowledge Base", "Reuters Fact Check"],
+            "verifiedSources" => !empty($parsed["verifiedSources"]) && is_array($parsed["verifiedSources"]) ? $parsed["verifiedSources"] : ["FactScan Neural Knowledge Base", "Reuters Fact Check"],
             "crossSourceArticles" => $crossSourceData["crossSourceArticles"] ?? [],
             "multiSourceConsensus" => $crossSourceData["consensus"] ?? [],
             "atomicClaims" => $crossSourceData["atomicClaims"] ?? [],

@@ -16,3 +16,4 @@ if (isset($data["verdict"]) && $data["verdict"] === "REAL") {
     echo "\nTEST FAILED!\n";
     exit(1);
 }
+
