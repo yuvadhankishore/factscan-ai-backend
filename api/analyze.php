@@ -191,9 +191,11 @@ exit();
  */
 function verifyClaimWithGeminiSearchGrounding(string $content, string $apiKey, string $hintHeadline, string $hintPublisher): ?array {
     $modelsToTry = [
+        "gemini-flash-latest",
         "gemini-2.5-flash",
         "gemini-2.0-flash",
-        "gemini-1.5-flash"
+        "gemini-1.5-flash",
+        "gemini-pro-latest"
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);

@@ -8,30 +8,40 @@ class GeminiConfig {
     const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     public static function getApiKey(?string $userApiKey = null): string {
+        $key = "";
         if (!empty($userApiKey) && trim($userApiKey) !== "") {
-            return trim($userApiKey);
-        }
-
-        // Check incoming request headers
-        if (isset($_SERVER["HTTP_X_GEMINI_API_KEY"]) && trim($_SERVER["HTTP_X_GEMINI_API_KEY"]) !== "") {
-            return trim($_SERVER["HTTP_X_GEMINI_API_KEY"]);
-        }
-
-        if (function_exists('getallheaders')) {
+            $key = trim($userApiKey);
+        } elseif (isset($_SERVER["HTTP_X_GEMINI_API_KEY"]) && trim($_SERVER["HTTP_X_GEMINI_API_KEY"]) !== "") {
+            $key = trim($_SERVER["HTTP_X_GEMINI_API_KEY"]);
+        } elseif (function_exists('getallheaders')) {
             $headers = getallheaders();
             foreach ($headers as $k => $v) {
                 if (strcasecmp($k, 'X-Gemini-Api-Key') === 0 && !empty(trim($v))) {
-                    return trim($v);
+                    $key = trim($v);
+                    break;
                 }
             }
         }
 
-        $envKey = getenv("GEMINI_API_KEY");
-        if ($envKey !== false && trim($envKey) !== "") {
-            return trim($envKey);
+        if (empty($key)) {
+            $envKey = getenv("GEMINI_API_KEY");
+            if ($envKey !== false && trim($envKey) !== "") {
+                $key = trim($envKey);
+            } elseif (defined("FACTSCAN_GEMINI_API_KEY") && FACTSCAN_GEMINI_API_KEY !== "") {
+                $key = FACTSCAN_GEMINI_API_KEY;
+            }
         }
 
-        return defined("FACTSCAN_GEMINI_API_KEY") && FACTSCAN_GEMINI_API_KEY !== "" ? FACTSCAN_GEMINI_API_KEY : self::DEFAULT_API_KEY;
+        // Clean and sanitize common copy-paste errors
+        $key = preg_replace('/^GEMINI_API_KEY\s*=\s*/i', '', trim($key));
+        $key = trim($key, " \t\n\r\0\x0B\"'");
+
+        // Ignore placeholder text
+        if (strpos($key, "your_") !== false || strpos($key, "AIzaSy...") !== false || strlen($key) < 20) {
+            return "";
+        }
+
+        return $key;
     }
 
     public static function generateContent(string $prompt, ?string $apiKey = null): ?string {
