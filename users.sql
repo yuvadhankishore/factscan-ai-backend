@@ -82,4 +82,33 @@ CREATE TABLE IF NOT EXISTS `password_resets` (
   KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+-- Table structure for table `fcm_device_tokens`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `fcm_device_tokens` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `device_id` varchar(255) NOT NULL,
+  `fcm_token` text NOT NULL,
+  `device_name` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `device_id` (`device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `push_notifications`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `push_notifications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `body` text NOT NULL,
+  `verdict` varchar(50) DEFAULT 'ALERT',
+  `confidence` int(11) DEFAULT 90,
+  `claim_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 COMMIT;
