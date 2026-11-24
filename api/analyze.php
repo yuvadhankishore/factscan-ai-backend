@@ -186,6 +186,22 @@ $confidence = (int)$aiResult["confidenceScore"];
 $summary = $aiResult["summary"];
 $reasoning = is_array($aiResult["reasoning"]) ? array_values($aiResult["reasoning"]) : [$aiResult["reasoning"]];
 $sources = is_array($aiResult["sources"]) ? array_values($aiResult["sources"]) : [];
+
+// Enrich with live wire citations if sparse
+if (count($sources) < 2) {
+    require_once __DIR__ . "/../config/live_news_fetcher.php";
+    $liveArticles = LiveNewsFetcher::fetchLiveWireNews($headline ?: $rawInput, 3);
+    foreach ($liveArticles as $art) {
+        $sources[] = [
+            "title" => $art["title"],
+            "url" => $art["url"],
+            "publisher" => $art["publisher"],
+            "timestamp" => $art["publishedAt"],
+            "isLive" => true
+        ];
+    }
+}
+
 $headline = !empty($aiResult["headline"]) ? $aiResult["headline"] : $extractedHeadline;
 $publisher = !empty($aiResult["publisher"]) ? $aiResult["publisher"] : $extractedPublisher;
 $isReal = (bool)($aiResult["isReal"] ?? ($verdict === "REAL"));
