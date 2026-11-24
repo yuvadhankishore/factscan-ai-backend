@@ -288,6 +288,17 @@ PROMPT;
 
     $userMessage = "INVESTIGATE THIS CONTENT FOR FACTUAL AUTHENTICITY:\n\n" . $cleanContent;
 
+    require_once __DIR__ . "/../config/live_news_fetcher.php";
+    $liveArticles = LiveNewsFetcher::fetchLiveWireNews($cleanContent, 4);
+    if (!empty($liveArticles)) {
+        $liveContext = "\n\nCONTEMPORARY LIVE NEWS WIRE DISPATCHES (RETRIEVED " . strtoupper(date("M j, Y")) . "):\n";
+        foreach ($liveArticles as $art) {
+            $liveContext .= "- [" . $art["publisher"] . "] " . $art["title"] . " (Date: " . $art["publishedAt"] . ")\n";
+        }
+        $userMessage .= $liveContext;
+        logDebug("Injected " . count($liveArticles) . " live wire articles into Gemini prompt for real-time 2026 grounding.");
+    }
+
     // Stage 1: Try with google_search grounding tool (with fast short-circuit if quota is limited)
     foreach ($modelsToTry as $model) {
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . urlencode($apiKey);
