@@ -6,3 +6,6 @@ __pycache__/
 .env
 
 
+debug_log.txt
+storage/cache/*
+!storage/cache/.gitkeep
