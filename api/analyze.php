@@ -118,6 +118,28 @@ if ($type === "URL" || filter_var($rawInput, FILTER_VALIDATE_URL) || preg_match(
     $extractedHeadline = mb_strlen($firstLine) <= 90 ? $firstLine : mb_substr($firstLine, 0, 85) . "...";
 }
 
+// Check high-speed disk cache (instant response for repeat or trending claims)
+$cacheKey = md5(strtoupper($type) . ":" . trim(mb_strtolower($contentToVerify)));
+$cacheDir = $backendRoot . "/storage/cache";
+if (!is_dir($cacheDir)) {
+    @mkdir($cacheDir, 0777, true);
+}
+$cacheFile = $cacheDir . "/analysis_" . $cacheKey . ".json";
+if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400)) {
+    $cachedData = @json_decode(file_get_contents($cacheFile), true);
+    if (!empty($cachedData) && isset($cachedData["verdict"])) {
+        $cachedData["cached"] = true;
+        $cachedData["timestamp"] = date("M d, Y • g:i A");
+        if (isset($cachedData["result"])) {
+            $cachedData["result"]["timestamp"] = date("M d, Y • g:i A");
+        }
+        logDebug("Cache HIT for key $cacheKey | Returning in <10ms");
+        http_response_code(200);
+        echo json_encode($cachedData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+}
+
 // 4. Call Gemini REST API with Google Search Grounding
 $aiResult = null;
 if (!empty($geminiApiKey)) {
@@ -214,6 +236,10 @@ $responsePayload = [
         "verifiedSources" => $normVerifiedSources
     ]
 ];
+
+if (!empty($cacheFile)) {
+    @file_put_contents($cacheFile, json_encode($responsePayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+}
 
 http_response_code(200);
 echo json_encode($responsePayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
