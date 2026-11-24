@@ -94,18 +94,22 @@ class FactCheckEngine {
         ];
 
         $isReputableDomain = false;
-        foreach ($reputableDomains as $rd) {
-            if ($host && strpos($host, $rd) !== false) {
-                $isReputableDomain = true;
-                break;
+        if ($host) {
+            foreach ($reputableDomains as $rd) {
+                if (substr($host, -strlen($rd)) === $rd || strpos($host, $rd) !== false) {
+                    $isReputableDomain = true;
+                    break;
+                }
             }
         }
 
         $isSatireDomain = false;
-        foreach ($satireDomains as $sd) {
-            if ($host && strpos($host, $sd) !== false) {
-                $isSatireDomain = true;
-                break;
+        if ($host && !$isReputableDomain) {
+            foreach ($satireDomains as $sd) {
+                if (substr($host, -strlen($sd)) === $sd || strpos($host, $sd) !== false) {
+                    $isSatireDomain = true;
+                    break;
+                }
             }
         }
 

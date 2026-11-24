@@ -118,6 +118,28 @@ if ($type === "URL" || filter_var($rawInput, FILTER_VALIDATE_URL) || preg_match(
     $extractedHeadline = mb_strlen($firstLine) <= 90 ? $firstLine : mb_substr($firstLine, 0, 85) . "...";
 }
 
+// Check high-speed disk cache (instant response for repeat or trending claims)
+$cacheKey = md5(strtoupper($type) . ":" . trim(mb_strtolower($contentToVerify)));
+$cacheDir = $backendRoot . "/storage/cache";
+if (!is_dir($cacheDir)) {
+    @mkdir($cacheDir, 0777, true);
+}
+$cacheFile = $cacheDir . "/analysis_" . $cacheKey . ".json";
+if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400)) {
+    $cachedData = @json_decode(file_get_contents($cacheFile), true);
+    if (!empty($cachedData) && isset($cachedData["verdict"])) {
+        $cachedData["cached"] = true;
+        $cachedData["timestamp"] = date("M d, Y • g:i A");
+        if (isset($cachedData["result"])) {
+            $cachedData["result"]["timestamp"] = date("M d, Y • g:i A");
+        }
+        logDebug("Cache HIT for key $cacheKey | Returning in <10ms");
+        http_response_code(200);
+        echo json_encode($cachedData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+}
+
 // 4. Call Gemini REST API with Google Search Grounding
 $aiResult = null;
 if (!empty($geminiApiKey)) {
@@ -215,6 +237,10 @@ $responsePayload = [
     ]
 ];
 
+if (!empty($cacheFile)) {
+    @file_put_contents($cacheFile, json_encode($responsePayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+}
+
 http_response_code(200);
 echo json_encode($responsePayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 logDebug("Dispatched Response: Verdict=$verdict | Conf=$confidence | Sources=" . count($sources));
@@ -228,10 +254,8 @@ exit();
 function callGeminiWithSearchGrounding(string $content, string $apiKey, string $hintTitle, string $hintPub): ?array {
     $modelsToTry = [
         "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-flash-lite-latest",
-        "gemini-2.5-flash",
-        "gemini-flash-latest"
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite"
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);
@@ -261,7 +285,7 @@ PROMPT;
 
     $userMessage = "INVESTIGATE THIS CONTENT FOR FACTUAL AUTHENTICITY:\n\n" . $cleanContent;
 
-    // Stage 1: Try with google_search grounding tool
+    // Stage 1: Try with google_search grounding tool (with fast short-circuit if quota is limited)
     foreach ($modelsToTry as $model) {
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . urlencode($apiKey);
 
@@ -282,7 +306,7 @@ PROMPT;
             "generationConfig" => [
                 "temperature" => 0.1,
                 "topP" => 0.8,
-                "maxOutputTokens" => 1500
+                "maxOutputTokens" => 1200
             ]
         ];
 
@@ -291,7 +315,8 @@ PROMPT;
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $rawResponse = curl_exec($ch);
@@ -300,9 +325,6 @@ PROMPT;
         curl_close($ch);
 
         logDebug("Gemini Call (grounded) [$model]: HTTP $httpCode | cURL Error: " . ($curlErr ?: "None"));
-        if (!empty($rawResponse)) {
-            logDebug("Gemini Raw (grounded) [$model]: " . substr($rawResponse, 0, 300) . "...");
-        }
 
         if ($httpCode === 200 && !empty($rawResponse)) {
             $parsed = parseGeminiSearchResponse($rawResponse);
@@ -311,11 +333,14 @@ PROMPT;
                 logDebug("Successfully verified via grounded Gemini ($model)!");
                 return $parsed;
             }
+        } elseif ($httpCode === 429) {
+            logDebug("Search grounding quota reached (429). Fast-failing grounded search to direct neural model.");
+            break; // Stop grounded attempts immediately on quota limit
         }
     }
 
-    // Stage 2: Direct Gemini Generative Verification (bypasses 429 search quota restrictions on free tier)
-    logDebug("Falling back to direct Gemini Generative verification...");
+    // Stage 2: Direct Gemini Generative Verification (ultra-fast, bypasses search quota)
+    logDebug("Executing fast direct Gemini Generative verification...");
     foreach ($modelsToTry as $model) {
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . urlencode($apiKey);
 
@@ -331,7 +356,7 @@ PROMPT;
             "generationConfig" => [
                 "temperature" => 0.1,
                 "topP" => 0.8,
-                "maxOutputTokens" => 1500
+                "maxOutputTokens" => 1200
             ]
         ];
 
@@ -340,7 +365,8 @@ PROMPT;
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 14);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $rawResponse = curl_exec($ch);
@@ -357,6 +383,8 @@ PROMPT;
                 logDebug("Successfully verified via direct Gemini ($model)!");
                 return $parsed;
             }
+        } elseif ($httpCode === 404) {
+            continue; // model name not found, try next
         }
     }
 
@@ -436,8 +464,11 @@ function scrapeWebpageContent(string $url): array {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_ENCODING, ''); // Enable gzip/deflate for 3x faster transfer
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
