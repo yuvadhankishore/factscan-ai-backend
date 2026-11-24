@@ -464,8 +464,11 @@ function scrapeWebpageContent(string $url): array {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_ENCODING, ''); // Enable gzip/deflate for 3x faster transfer
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
