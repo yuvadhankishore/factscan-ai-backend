@@ -135,8 +135,12 @@ class GeminiReasoningAgent {
             }
         }
 
+        $currentDateStr = date("l, F j, Y • g:i A T");
+
         return <<<PROMPT
-You are Gemini Fact-Check Engine 2.0, an expert news verifier trained to identify disinformation, hoaxes, and authentic reporting across all formats (text, URLs, documents, images, and audio).
+You are Gemini Fact-Check Engine, an expert investigative news verifier trained to identify disinformation, hoaxes, and authentic reporting across all formats (text, URLs, documents, images, and audio).
+
+TEMPORAL CONTEXT: Today is {$currentDateStr}. Evaluate this content in the context of year 2026. Do NOT treat 2026 events as future predictions; evaluate them against the latest 2026 sovereign records and live news developments.
 
 CONTENT FORMAT: $format
 CONTENT TO ANALYZE:

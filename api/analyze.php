@@ -259,24 +259,27 @@ function callGeminiWithSearchGrounding(string $content, string $apiKey, string $
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);
+    $currentDateStr = date("l, F j, Y • g:i A T");
 
     $systemPrompt = <<<PROMPT
-You are FactScan AI, an objective investigative fact-checking agent. You analyze news headlines, claims, articles, and rumors in real time.
-Verify the factual accuracy of the provided content against verifiable facts, institutional registries, accredited news wire reports (Reuters, AP, BBC, AFP), and official announcements.
-NEVER return canned, generic, or placeholder messages. Every verdict and reasoning bullet must specifically address the named entities, dates, locations, and facts in the claim.
+You are FactScan AI, a real-time investigative fact-checking intelligence agent.
+TEMPORAL ANCHOR: Today is {$currentDateStr}. You are evaluating this claim in real-time in year 2026.
+Verify the factual accuracy against the latest 2026 news updates, official sovereign registries, and accredited news wire reports (Reuters, AP, BBC, AFP, Bloomberg, ANI, Press Trust of India).
+Do NOT treat modern 2026 developments as future events. If a claim involves recent breaking news, evaluate the latest public record as of {$currentDateStr}.
+NEVER return canned or outdated static messages. Every verdict and reasoning bullet must specifically address the named entities, dates, locations, and contemporary context of the claim.
 
 You MUST return ONLY a raw JSON object (do NOT wrap in ```json or markdown code fences):
 {
   "verdict": "REAL" or "FAKE" or "MISLEADING" or "UNVERIFIED",
   "confidenceScore": 95,
-  "summary": "1-2 sentence concise factual verdict",
+  "summary": "1-2 sentence concise factual verdict referencing current reality",
   "reasoning": [
-    "Specific factual finding 1 with named entities and dates",
+    "Specific factual finding 1 with named entities, dates, and contemporary context",
     "Evidence point 2 explaining why it is true, false, or distorted",
-    "Evidence point 3 citing accredited wire reporting or official records"
+    "Evidence point 3 citing accredited wire reporting, official records, or recent verification"
   ],
   "sources": [
-    { "title": "Associated Press / Official Source Name", "url": "https://..." }
+    { "title": "Associated Press / Reuters / Official Source Name", "url": "https://..." }
   ],
   "headline": "A concise single-line title summarizing the investigated claim",
   "publisher": "Name of publisher or 'Global News Wire'"
