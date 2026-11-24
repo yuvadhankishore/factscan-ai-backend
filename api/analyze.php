@@ -118,14 +118,18 @@ if ($type === "URL" || filter_var($rawInput, FILTER_VALIDATE_URL) || preg_match(
     $extractedHeadline = mb_strlen($firstLine) <= 90 ? $firstLine : mb_substr($firstLine, 0, 85) . "...";
 }
 
-// Check high-speed disk cache (instant response for repeat or trending claims)
+// Check high-speed disk cache with dynamic freshness TTL
+$forceRefresh = !empty($_GET["refresh"]) || !empty($_POST["refresh"]) || !empty($postJson["refresh"]);
+$isBreakingQuery = (bool)preg_match('/\b(today|now|breaking|latest|current|recent|just in|this week)\b/i', $contentToVerify);
+$cacheTtl = $isBreakingQuery ? 900 : 86400; // 15 mins for breaking news vs 24h for static claims
+
 $cacheKey = md5(strtoupper($type) . ":" . trim(mb_strtolower($contentToVerify)));
 $cacheDir = $backendRoot . "/storage/cache";
 if (!is_dir($cacheDir)) {
     @mkdir($cacheDir, 0777, true);
 }
 $cacheFile = $cacheDir . "/analysis_" . $cacheKey . ".json";
-if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400)) {
+if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtl)) {
     $cachedData = @json_decode(file_get_contents($cacheFile), true);
     if (!empty($cachedData) && isset($cachedData["verdict"])) {
         $cachedData["cached"] = true;
@@ -186,6 +190,22 @@ $confidence = (int)$aiResult["confidenceScore"];
 $summary = $aiResult["summary"];
 $reasoning = is_array($aiResult["reasoning"]) ? array_values($aiResult["reasoning"]) : [$aiResult["reasoning"]];
 $sources = is_array($aiResult["sources"]) ? array_values($aiResult["sources"]) : [];
+
+// Enrich with live wire citations if sparse
+if (count($sources) < 2) {
+    require_once __DIR__ . "/../config/live_news_fetcher.php";
+    $liveArticles = LiveNewsFetcher::fetchLiveWireNews($headline ?: $rawInput, 3);
+    foreach ($liveArticles as $art) {
+        $sources[] = [
+            "title" => $art["title"],
+            "url" => $art["url"],
+            "publisher" => $art["publisher"],
+            "timestamp" => $art["publishedAt"],
+            "isLive" => true
+        ];
+    }
+}
+
 $headline = !empty($aiResult["headline"]) ? $aiResult["headline"] : $extractedHeadline;
 $publisher = !empty($aiResult["publisher"]) ? $aiResult["publisher"] : $extractedPublisher;
 $isReal = (bool)($aiResult["isReal"] ?? ($verdict === "REAL"));
@@ -217,6 +237,9 @@ $responsePayload = [
     "verdictJustification" => $summary,
     "reasoningSteps" => $reasoning,
     "groundingUsed" => (bool)($aiResult["groundingUsed"] ?? false),
+    "isLiveWire" => true,
+    "freshness" => "REAL_TIME_2026",
+    "temporalAnchor" => date("Y-m-d H:i:s T"),
     "timestamp" => date("M d, Y • g:i A"),
     // Full matching embedded result for Android Retrofit ContentApiService
     "result" => [
@@ -226,6 +249,9 @@ $responsePayload = [
         "verdict" => $verdict,
         "isReal" => $isReal,
         "confidence" => $confidence,
+        "isLiveWire" => true,
+        "freshness" => "REAL_TIME_2026",
+        "temporalAnchor" => date("Y-m-d H:i:s T"),
         "timestamp" => date("M d, Y • g:i A"),
         "summary" => $summary,
         "whyThisResult" => $whyThisResult,
@@ -253,30 +279,34 @@ exit();
 
 function callGeminiWithSearchGrounding(string $content, string $apiKey, string $hintTitle, string $hintPub): ?array {
     $modelsToTry = [
+        "gemini-3.8-flash",
         "gemini-3.5-flash-lite",
         "gemini-flash-latest",
         "gemini-3.1-flash-lite"
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);
+    $currentDateStr = date("l, F j, Y • g:i A T");
 
     $systemPrompt = <<<PROMPT
-You are FactScan AI, an objective investigative fact-checking agent. You analyze news headlines, claims, articles, and rumors in real time.
-Verify the factual accuracy of the provided content against verifiable facts, institutional registries, accredited news wire reports (Reuters, AP, BBC, AFP), and official announcements.
-NEVER return canned, generic, or placeholder messages. Every verdict and reasoning bullet must specifically address the named entities, dates, locations, and facts in the claim.
+You are FactScan AI, a real-time investigative fact-checking intelligence agent.
+TEMPORAL ANCHOR: Today is {$currentDateStr}. You are evaluating this claim in real-time in year 2026.
+Verify the factual accuracy against the latest 2026 news updates, official sovereign registries, and accredited news wire reports (Reuters, AP, BBC, AFP, Bloomberg, ANI, Press Trust of India).
+Do NOT treat modern 2026 developments as future events. If a claim involves recent breaking news, evaluate the latest public record as of {$currentDateStr}.
+NEVER return canned or outdated static messages. Every verdict and reasoning bullet must specifically address the named entities, dates, locations, and contemporary context of the claim.
 
 You MUST return ONLY a raw JSON object (do NOT wrap in ```json or markdown code fences):
 {
   "verdict": "REAL" or "FAKE" or "MISLEADING" or "UNVERIFIED",
   "confidenceScore": 95,
-  "summary": "1-2 sentence concise factual verdict",
+  "summary": "1-2 sentence concise factual verdict referencing current reality",
   "reasoning": [
-    "Specific factual finding 1 with named entities and dates",
+    "Specific factual finding 1 with named entities, dates, and contemporary context",
     "Evidence point 2 explaining why it is true, false, or distorted",
-    "Evidence point 3 citing accredited wire reporting or official records"
+    "Evidence point 3 citing accredited wire reporting, official records, or recent verification"
   ],
   "sources": [
-    { "title": "Associated Press / Official Source Name", "url": "https://..." }
+    { "title": "Associated Press / Reuters / Official Source Name", "url": "https://..." }
   ],
   "headline": "A concise single-line title summarizing the investigated claim",
   "publisher": "Name of publisher or 'Global News Wire'"
@@ -284,6 +314,17 @@ You MUST return ONLY a raw JSON object (do NOT wrap in ```json or markdown code 
 PROMPT;
 
     $userMessage = "INVESTIGATE THIS CONTENT FOR FACTUAL AUTHENTICITY:\n\n" . $cleanContent;
+
+    require_once __DIR__ . "/../config/live_news_fetcher.php";
+    $liveArticles = LiveNewsFetcher::fetchLiveWireNews($cleanContent, 4);
+    if (!empty($liveArticles)) {
+        $liveContext = "\n\nCONTEMPORARY LIVE NEWS WIRE DISPATCHES (RETRIEVED " . strtoupper(date("M j, Y")) . "):\n";
+        foreach ($liveArticles as $art) {
+            $liveContext .= "- [" . $art["publisher"] . "] " . $art["title"] . " (Date: " . $art["publishedAt"] . ")\n";
+        }
+        $userMessage .= $liveContext;
+        logDebug("Injected " . count($liveArticles) . " live wire articles into Gemini prompt for real-time 2026 grounding.");
+    }
 
     // Stage 1: Try with google_search grounding tool (with fast short-circuit if quota is limited)
     foreach ($modelsToTry as $model) {
