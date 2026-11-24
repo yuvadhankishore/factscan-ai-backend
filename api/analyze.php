@@ -254,10 +254,8 @@ exit();
 function callGeminiWithSearchGrounding(string $content, string $apiKey, string $hintTitle, string $hintPub): ?array {
     $modelsToTry = [
         "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-flash-lite-latest",
-        "gemini-2.5-flash",
-        "gemini-flash-latest"
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite"
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);
@@ -287,7 +285,7 @@ PROMPT;
 
     $userMessage = "INVESTIGATE THIS CONTENT FOR FACTUAL AUTHENTICITY:\n\n" . $cleanContent;
 
-    // Stage 1: Try with google_search grounding tool
+    // Stage 1: Try with google_search grounding tool (with fast short-circuit if quota is limited)
     foreach ($modelsToTry as $model) {
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . urlencode($apiKey);
 
@@ -308,7 +306,7 @@ PROMPT;
             "generationConfig" => [
                 "temperature" => 0.1,
                 "topP" => 0.8,
-                "maxOutputTokens" => 1500
+                "maxOutputTokens" => 1200
             ]
         ];
 
@@ -317,7 +315,8 @@ PROMPT;
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $rawResponse = curl_exec($ch);
@@ -326,9 +325,6 @@ PROMPT;
         curl_close($ch);
 
         logDebug("Gemini Call (grounded) [$model]: HTTP $httpCode | cURL Error: " . ($curlErr ?: "None"));
-        if (!empty($rawResponse)) {
-            logDebug("Gemini Raw (grounded) [$model]: " . substr($rawResponse, 0, 300) . "...");
-        }
 
         if ($httpCode === 200 && !empty($rawResponse)) {
             $parsed = parseGeminiSearchResponse($rawResponse);
@@ -337,11 +333,14 @@ PROMPT;
                 logDebug("Successfully verified via grounded Gemini ($model)!");
                 return $parsed;
             }
+        } elseif ($httpCode === 429) {
+            logDebug("Search grounding quota reached (429). Fast-failing grounded search to direct neural model.");
+            break; // Stop grounded attempts immediately on quota limit
         }
     }
 
-    // Stage 2: Direct Gemini Generative Verification (bypasses 429 search quota restrictions on free tier)
-    logDebug("Falling back to direct Gemini Generative verification...");
+    // Stage 2: Direct Gemini Generative Verification (ultra-fast, bypasses search quota)
+    logDebug("Executing fast direct Gemini Generative verification...");
     foreach ($modelsToTry as $model) {
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . urlencode($apiKey);
 
@@ -357,7 +356,7 @@ PROMPT;
             "generationConfig" => [
                 "temperature" => 0.1,
                 "topP" => 0.8,
-                "maxOutputTokens" => 1500
+                "maxOutputTokens" => 1200
             ]
         ];
 
@@ -366,7 +365,8 @@ PROMPT;
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 14);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $rawResponse = curl_exec($ch);
@@ -383,6 +383,8 @@ PROMPT;
                 logDebug("Successfully verified via direct Gemini ($model)!");
                 return $parsed;
             }
+        } elseif ($httpCode === 404) {
+            continue; // model name not found, try next
         }
     }
 
