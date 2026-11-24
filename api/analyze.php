@@ -118,14 +118,18 @@ if ($type === "URL" || filter_var($rawInput, FILTER_VALIDATE_URL) || preg_match(
     $extractedHeadline = mb_strlen($firstLine) <= 90 ? $firstLine : mb_substr($firstLine, 0, 85) . "...";
 }
 
-// Check high-speed disk cache (instant response for repeat or trending claims)
+// Check high-speed disk cache with dynamic freshness TTL
+$forceRefresh = !empty($_GET["refresh"]) || !empty($_POST["refresh"]) || !empty($postJson["refresh"]);
+$isBreakingQuery = (bool)preg_match('/\b(today|now|breaking|latest|current|recent|just in|this week)\b/i', $contentToVerify);
+$cacheTtl = $isBreakingQuery ? 900 : 86400; // 15 mins for breaking news vs 24h for static claims
+
 $cacheKey = md5(strtoupper($type) . ":" . trim(mb_strtolower($contentToVerify)));
 $cacheDir = $backendRoot . "/storage/cache";
 if (!is_dir($cacheDir)) {
     @mkdir($cacheDir, 0777, true);
 }
 $cacheFile = $cacheDir . "/analysis_" . $cacheKey . ".json";
-if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400)) {
+if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtl)) {
     $cachedData = @json_decode(file_get_contents($cacheFile), true);
     if (!empty($cachedData) && isset($cachedData["verdict"])) {
         $cachedData["cached"] = true;
