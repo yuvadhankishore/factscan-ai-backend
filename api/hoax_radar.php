@@ -18,10 +18,23 @@ require_once __DIR__ . "/../config/hoax_radar_feed.php";
 
 $category = trim($_GET["category"] ?? "All");
 $limit = isset($_GET["limit"]) ? min(50, max(1, (int)$_GET["limit"])) : 20;
+$forceRefresh = !empty($_GET["refresh"]);
+
+$cacheDir = dirname(__DIR__) . "/storage/cache";
+if (!is_dir($cacheDir)) @mkdir($cacheDir, 0777, true);
+$cacheFile = $cacheDir . "/hoax_radar_" . md5(strtolower($category) . "_" . $limit) . ".json";
+
+if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < 600)) {
+    $cached = @file_get_contents($cacheFile);
+    if (!empty($cached)) {
+        echo $cached;
+        exit();
+    }
+}
 
 $alerts = HoaxRadarFeed::getAlerts($conn ?? null, $category, $limit);
 
-echo json_encode([
+$payload = json_encode([
     "success" => true,
     "category" => $category,
     "count" => count($alerts),
@@ -29,3 +42,6 @@ echo json_encode([
     "alerts" => $alerts,
     "timestamp" => date("M d, Y • g:i A")
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+@file_put_contents($cacheFile, $payload);
+echo $payload;
