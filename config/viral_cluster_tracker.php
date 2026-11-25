@@ -54,4 +54,163 @@ class ViralClusterTracker {
         $union = count(array_unique(array_merge($tokensA, $tokensB)));
         return $union > 0 ? ($intersection / $union) : 0.0;
     }
+
+    /**
+     * Generates a stable SHA-256 fingerprint from sorted claim tokens.
+     */
+    public static function computeFingerprint(string $text): array {
+        $tokens = self::tokenizeClaim($text);
+        $keywordStr = implode(' ', $tokens);
+        $fingerprint = hash('sha256', $keywordStr ?: mb_strtolower(trim($text)));
+        return [
+            'fingerprint' => $fingerprint,
+            'keywords' => $keywordStr,
+            'tokens' => $tokens
+        ];
+    }
+
+    /**
+     * Tracks claim spread in MySQL (with JSON disk fallback) and returns spread metadata.
+     */
+    public static function trackClaimSpread(string $claimText, string $verdict = 'UNVERIFIED', $conn = null): array {
+        $fpData = self::computeFingerprint($claimText);
+        $fingerprint = $fpData['fingerprint'];
+        $keywords = $fpData['keywords'];
+        $tokens = $fpData['tokens'];
+        $spreadCount = 1;
+
+        if (empty($tokens)) {
+            return [
+                'fingerprint' => $fingerprint,
+                'viralSpreadCount' => 1,
+                'isViralHoax' => false,
+                'clusterWarning' => ''
+            ];
+        }
+
+        // Try MySQL tracking first
+        $dbTracked = false;
+        if ($conn instanceof PDO) {
+            try {
+                // Ensure table exists gracefully
+                $conn->exec("CREATE TABLE IF NOT EXISTS viral_hoax_clusters (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    fingerprint VARCHAR(64) NOT NULL UNIQUE,
+                    canonical_claim TEXT NOT NULL,
+                    keywords VARCHAR(255) NOT NULL,
+                    verdict VARCHAR(50) DEFAULT 'FAKE',
+                    spread_count INT NOT NULL DEFAULT 1,
+                    first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $stmt = $conn->prepare("SELECT id, spread_count, keywords FROM viral_hoax_clusters WHERE fingerprint = :fp LIMIT 1");
+                $stmt->execute([':fp' => $fingerprint]);
+                $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($existing) {
+                    $spreadCount = (int)$existing['spread_count'] + 1;
+                    $upd = $conn->prepare("UPDATE viral_hoax_clusters SET spread_count = :cnt, verdict = :v WHERE id = :id");
+                    $upd->execute([':cnt' => $spreadCount, ':v' => $verdict, ':id' => $existing['id']]);
+                } else {
+                    // Check recent clusters for near-duplicate Jaccard match (>= 0.65)
+                    $recentStmt = $conn->query("SELECT id, spread_count, keywords FROM viral_hoax_clusters ORDER BY last_seen DESC LIMIT 50");
+                    $matchedId = null;
+                    foreach ($recentStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                        $rowTokens = explode(' ', $row['keywords']);
+                        if (self::computeSimilarity($tokens, $rowTokens) >= 0.65) {
+                            $matchedId = $row['id'];
+                            $spreadCount = (int)$row['spread_count'] + 1;
+                            break;
+                        }
+                    }
+
+                    if ($matchedId !== null) {
+                        $upd = $conn->prepare("UPDATE viral_hoax_clusters SET spread_count = :cnt, verdict = :v WHERE id = :id");
+                        $upd->execute([':cnt' => $spreadCount, ':v' => $verdict, ':id' => $matchedId]);
+                    } else {
+                        $ins = $conn->prepare("INSERT INTO viral_hoax_clusters (fingerprint, canonical_claim, keywords, verdict, spread_count) VALUES (:fp, :claim, :kw, :v, 1)");
+                        $ins->execute([
+                            ':fp' => $fingerprint,
+                            ':claim' => mb_substr($claimText, 0, 500),
+                            ':kw' => mb_substr($keywords, 0, 250),
+                            ':v' => $verdict
+                        ]);
+                    }
+                }
+                $dbTracked = true;
+            } catch (Throwable $e) {
+                $dbTracked = false;
+            }
+        }
+
+        if (!$dbTracked) {
+            $spreadCount = self::trackDiskFallback($fingerprint, $claimText, $keywords, $verdict, $tokens);
+        }
+
+        return self::buildSpreadResponse($fingerprint, $spreadCount, $verdict);
+    }
+
+    private static function trackDiskFallback(string $fingerprint, string $claimText, string $keywords, string $verdict, array $tokens): int {
+        $cacheFile = dirname(__DIR__) . "/storage/cache/viral_clusters.json";
+        if (!is_dir(dirname($cacheFile))) {
+            @mkdir(dirname($cacheFile), 0777, true);
+        }
+        $clusters = file_exists($cacheFile) ? (@json_decode(file_get_contents($cacheFile), true) ?: []) : [];
+
+        $spreadCount = 1;
+        $matchedKey = null;
+        if (isset($clusters[$fingerprint])) {
+            $matchedKey = $fingerprint;
+        } else {
+            foreach ($clusters as $fp => $entry) {
+                $entryTokens = explode(' ', $entry['keywords'] ?? '');
+                if (self::computeSimilarity($tokens, $entryTokens) >= 0.65) {
+                    $matchedKey = $fp;
+                    break;
+                }
+            }
+        }
+
+        if ($matchedKey !== null) {
+            $spreadCount = (int)($clusters[$matchedKey]['spread_count'] ?? 1) + 1;
+            $clusters[$matchedKey]['spread_count'] = $spreadCount;
+            $clusters[$matchedKey]['verdict'] = $verdict;
+            $clusters[$matchedKey]['last_seen'] = time();
+        } else {
+            $clusters[$fingerprint] = [
+                'fingerprint' => $fingerprint,
+                'canonical_claim' => mb_substr($claimText, 0, 500),
+                'keywords' => mb_substr($keywords, 0, 250),
+                'verdict' => $verdict,
+                'spread_count' => 1,
+                'last_seen' => time()
+            ];
+        }
+
+        // Keep file bounded to 200 most recent clusters
+        if (count($clusters) > 200) {
+            uasort($clusters, fn($a, $b) => ($b['last_seen'] ?? 0) <=> ($a['last_seen'] ?? 0));
+            $clusters = array_slice($clusters, 0, 200, true);
+        }
+        @file_put_contents($cacheFile, json_encode($clusters, JSON_UNESCAPED_UNICODE));
+        return $spreadCount;
+    }
+
+    public static function buildSpreadResponse(string $fingerprint, int $spreadCount, string $verdict): array {
+        $isFakeOrMisleading = in_array(strtoupper($verdict), ['FAKE', 'MISLEADING', 'FALSE'], true);
+        $isViral = ($spreadCount >= 2 && $isFakeOrMisleading);
+        $warning = '';
+        if ($spreadCount >= 2 && $isFakeOrMisleading) {
+            $warning = "Viral Alert: Similar variations of this claim were flagged {$spreadCount} times across FactScan AI.";
+        } elseif ($spreadCount >= 3) {
+            $warning = "Trending Claim: Checked {$spreadCount} times recently by FactScan AI users.";
+        }
+        return [
+            'fingerprint' => $fingerprint,
+            'viralSpreadCount' => $spreadCount,
+            'isViralHoax' => $isViral,
+            'clusterWarning' => $warning
+        ];
+    }
 }
