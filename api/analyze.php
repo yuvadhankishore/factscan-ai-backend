@@ -223,6 +223,12 @@ foreach ($sources as $s) {
     }
 }
 
+// Track viral spread cluster (non-breaking, additive)
+require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../config/viral_cluster_tracker.php";
+$spreadMeta = ViralClusterTracker::trackClaimSpread($headline ?: $rawInput, $verdict, $conn ?? null);
+ViralClusterTracker::recordSpikeAlertIfNeeded($headline ?: $rawInput, $verdict, $spreadMeta["viralSpreadCount"] ?? 1, $conn ?? null);
+
 $responsePayload = [
     "success" => true,
     "verdict" => $verdict,
