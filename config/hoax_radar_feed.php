@@ -67,6 +67,19 @@ class HoaxRadarFeed {
     }
 
     public static function classifyCategory(string $text): string {
+        $lower = mb_strtolower($text, 'UTF-8');
+        if (preg_match('/\b(cancer|vaccine|cure|virus|health|doctor|medicine|lemon|covid|hospital|who|disease|fda|pill|diet)\b/i', $lower)) {
+            return "Health";
+        }
+        if (preg_match('/\b(bank|crypto|bitcoin|rupee|dollar|stock|tax|scam|upi|atm|loan|investment|money|rbi|fed)\b/i', $lower)) {
+            return "Finance";
+        }
+        if (preg_match('/\b(election|president|prime minister|parliament|vote|senate|government|minister|law|policy|treaty|border)\b/i', $lower)) {
+            return "Politics";
+        }
+        if (preg_match('/\b(ai|deepfake|apple|google|meta|whatsapp|iphone|android|cyber|hack|5g|satellite|nasa|space|robot)\b/i', $lower)) {
+            return "Tech";
+        }
         return "General";
     }
 }
