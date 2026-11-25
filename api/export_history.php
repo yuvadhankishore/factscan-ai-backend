@@ -46,6 +46,8 @@ if ($format === "json") {
 header("Content-Type: text/csv; charset=UTF-8");
 header("Content-Disposition: attachment; filename=\"factscan_history_" . date("Ymd") . ".csv\"");
 
+// UTF-8 BOM for clean Excel opening
+echo "\xEF\xBB\xBF";
 echo formatCsvRow(["ID", "Claim / Headline", "Verdict", "Checked At"]);
 foreach ($rows as $r) {
     echo formatCsvRow([
