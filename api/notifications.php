@@ -15,6 +15,7 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
 }
 
 require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../config/hoax_radar_feed.php";
 
 $limit = isset($_GET["limit"]) ? min(50, max(1, (int)$_GET["limit"])) : 20;
 
@@ -32,6 +33,12 @@ try {
     $stmt->bindValue(":limit", $limit, PDO::PARAM_INT);
     $stmt->execute();
     $notifications = $stmt->fetchAll();
+
+    foreach ($notifications as &$n) {
+        $n["category"] = HoaxRadarFeed::classifyCategory(($n["title"] ?? "") . " " . ($n["body"] ?? ""));
+        $n["severity"] = (strtoupper($n["verdict"] ?? "") === "FAKE") ? "HIGH" : "INFO";
+    }
+    unset($n);
 
     echo json_encode([
         "success" => true,
