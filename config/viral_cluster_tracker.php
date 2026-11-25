@@ -213,4 +213,49 @@ class ViralClusterTracker {
             'clusterWarning' => $warning
         ];
     }
+
+    /**
+     * Returns top viral clusters ordered by spread count.
+     */
+    public static function getTopViralClusters($conn = null, int $limit = 15): array {
+        if ($conn instanceof PDO) {
+            try {
+                $stmt = $conn->prepare("SELECT fingerprint, canonical_claim, keywords, verdict, spread_count, last_seen FROM viral_hoax_clusters ORDER BY spread_count DESC, last_seen DESC LIMIT :lim");
+                $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+                $stmt->execute();
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($rows)) return $rows;
+            } catch (Throwable $e) {
+                // Fall through to disk fallback
+            }
+        }
+        $cacheFile = dirname(__DIR__) . "/storage/cache/viral_clusters.json";
+        if (!file_exists($cacheFile)) return [];
+        $clusters = @json_decode(file_get_contents($cacheFile), true) ?: [];
+        uasort($clusters, fn($a, $b) => ($b['spread_count'] ?? 0) <=> ($a['spread_count'] ?? 0));
+        return array_values(array_slice($clusters, 0, $limit));
+    }
+
+    /**
+     * Auto-logs a radar/notification alert when a fake claim crosses a viral threshold.
+     */
+    public static function recordSpikeAlertIfNeeded(string $claimText, string $verdict, int $spreadCount, $conn = null): void {
+        if ($spreadCount < 3 || !in_array(strtoupper($verdict), ['FAKE', 'MISLEADING'], true)) {
+            return;
+        }
+        if ($conn instanceof PDO) {
+            try {
+                $title = "Viral Hoax Spike Detected ($spreadCount reports)";
+                $summary = mb_substr(trim($claimText), 0, 180);
+                $chk = $conn->prepare("SELECT id FROM hoax_radar_alerts WHERE title = :t AND created_at > DATE_SUB(NOW(), INTERVAL 6 HOUR) LIMIT 1");
+                $chk->execute([':t' => $title]);
+                if (!$chk->fetch()) {
+                    $ins = $conn->prepare("INSERT INTO hoax_radar_alerts (title, summary, category, verdict, severity, spread_count) VALUES (:t, :s, 'General', :v, 'CRITICAL', :sc)");
+                    $ins->execute([':t' => $title, ':s' => $summary, ':v' => $verdict, ':sc' => $spreadCount]);
+                }
+            } catch (Throwable $e) {
+                // Non-fatal
+            }
+        }
+    }
 }
