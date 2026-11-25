@@ -22,6 +22,18 @@ $userId = (int)($_SERVER["HTTP_X_USER_ID"] ?? $_GET["user_id"] ?? 1);
 if ($userId < 1) $userId = 1;
 
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
+    $batchParam = trim($_GET["batch"] ?? "");
+    if (!empty($batchParam)) {
+        $domains = array_filter(array_map('trim', explode(',', $batchParam)));
+        $results = [];
+        foreach ($domains as $d) {
+            $norm = ProfilePreferencesManager::normalizeDomain($d);
+            $results[$norm] = ProfilePreferencesManager::checkDomainStatus($userId, $norm, $conn ?? null);
+        }
+        echo json_encode(["success" => true, "results" => $results]);
+        exit();
+    }
+
     $checkDomain = trim($_GET["check"] ?? "");
     if (!empty($checkDomain)) {
         $status = ProfilePreferencesManager::checkDomainStatus($userId, $checkDomain, $conn ?? null);
