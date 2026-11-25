@@ -111,4 +111,38 @@ CREATE TABLE IF NOT EXISTS `push_notifications` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+-- Table structure for table `viral_hoax_clusters`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `viral_hoax_clusters` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `fingerprint` varchar(64) NOT NULL,
+  `canonical_claim` text NOT NULL,
+  `keywords` varchar(255) NOT NULL,
+  `verdict` varchar(50) DEFAULT 'FAKE',
+  `spread_count` int(11) NOT NULL DEFAULT 1,
+  `first_seen` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_seen` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `fingerprint` (`fingerprint`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `hoax_radar_alerts`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `hoax_radar_alerts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `summary` text NOT NULL,
+  `category` varchar(50) DEFAULT 'General',
+  `verdict` varchar(50) DEFAULT 'FAKE',
+  `severity` varchar(20) DEFAULT 'HIGH',
+  `source_name` varchar(100) DEFAULT 'FactScan Radar',
+  `spread_count` int(11) DEFAULT 1,
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 COMMIT;
