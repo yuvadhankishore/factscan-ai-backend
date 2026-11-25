@@ -22,5 +22,7 @@ assert(ProfilePreferencesManager::checkDomainStatus($uid, "fakenews-example.xyz"
 
 $topics = ProfilePreferencesManager::saveRadarTopics($uid, ["Health", "Tech"], null);
 assert(count($topics) === 2 && in_array("Health", $topics) && in_array("Tech", $topics));
+$cachedTopics = ProfilePreferencesManager::getRadarTopics($uid, null);
+assert(count($cachedTopics) === 2);
 
 echo "PASSED: ProfilePreferencesManager O(1) lookups and topic persistence verified.\n";
