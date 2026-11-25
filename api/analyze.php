@@ -134,10 +134,20 @@ $cacheFile = $cacheDir . "/analysis_" . $cacheKey . ".json";
 if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtl)) {
     $cachedData = @json_decode(file_get_contents($cacheFile), true);
     if (!empty($cachedData) && isset($cachedData["verdict"])) {
+        require_once __DIR__ . "/../config/db.php";
+        require_once __DIR__ . "/../config/viral_cluster_tracker.php";
+        $spreadMeta = ViralClusterTracker::trackClaimSpread($cachedData["headline"] ?? $rawInput, $cachedData["verdict"], $conn ?? null);
+
         $cachedData["cached"] = true;
         $cachedData["timestamp"] = date("M d, Y • g:i A");
+        $cachedData["viralSpreadCount"] = (int)($spreadMeta["viralSpreadCount"] ?? 1);
+        $cachedData["isViralHoax"] = (bool)($spreadMeta["isViralHoax"] ?? false);
+        $cachedData["clusterWarning"] = (string)($spreadMeta["clusterWarning"] ?? "");
         if (isset($cachedData["result"])) {
             $cachedData["result"]["timestamp"] = date("M d, Y • g:i A");
+            $cachedData["result"]["viralSpreadCount"] = $cachedData["viralSpreadCount"];
+            $cachedData["result"]["isViralHoax"] = $cachedData["isViralHoax"];
+            $cachedData["result"]["clusterWarning"] = $cachedData["clusterWarning"];
         }
         logDebug("Cache HIT for key $cacheKey | Returning in <10ms");
         http_response_code(200);
