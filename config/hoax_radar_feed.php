@@ -55,6 +55,27 @@ class HoaxRadarFeed {
             ];
         }
 
+        // 3. Pull live fact-check dispatches from RSS wire so radar is always fresh
+        $liveDebunks = LiveNewsFetcher::fetchLiveWireNews("fact check debunked hoax misinformation", 6);
+        foreach ($liveDebunks as $idx => $art) {
+            $title = $art["title"] ?? "";
+            if (empty($title)) continue;
+            $cat = self::classifyCategory($title);
+            $alerts[] = [
+                "id" => 20000 + $idx,
+                "title" => $title,
+                "summary" => "Verified fact-check dispatch from " . ($art["publisher"] ?? "News Wire") . ". Tap to inspect or verify.",
+                "category" => $cat,
+                "verdict" => "MISLEADING",
+                "severity" => "MEDIUM",
+                "sourceName" => $art["publisher"] ?? "Live Fact Wire",
+                "spreadCount" => 1,
+                "timestamp" => $art["publishedAt"] ?? date("M d, Y")
+            ];
+        }
+
+        $alerts = ViralClusterTracker::deduplicateAlerts($alerts);
+
         // Filter by category if requested
         $catNorm = strtolower(trim($category));
         if ($catNorm !== "" && $catNorm !== "all") {
