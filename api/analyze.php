@@ -72,6 +72,8 @@ $postJson = json_decode($inputRaw, true) ?: [];
 $type = strtoupper(trim($_POST["type"] ?? $postJson["type"] ?? "TEXT"));
 $rawInput = trim($_POST["input"] ?? $_POST["text"] ?? $_POST["claim"] ?? $postJson["input"] ?? $postJson["text"] ?? $postJson["claim"] ?? "");
 $urlInput = trim($_POST["url"] ?? $postJson["url"] ?? "");
+$requestSource = trim($_POST["source"] ?? $postJson["source"] ?? "app");
+$isShareOverlay = ($requestSource === "share_overlay");
 
 if (empty($rawInput) && !empty($urlInput)) {
     $rawInput = $urlInput;
