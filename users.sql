@@ -145,4 +145,30 @@ CREATE TABLE IF NOT EXISTS `hoax_radar_alerts` (
   KEY `category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+-- Table structure for table `user_domain_watchlist`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `user_domain_watchlist` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT 0,
+  `domain` varchar(255) NOT NULL,
+  `rule_type` enum('TRUSTED','FLAGGED') NOT NULL DEFAULT 'TRUSTED',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_user_domain` (`user_id`, `domain`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `user_radar_preferences`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `user_radar_preferences` (
+  `user_id` int(11) NOT NULL,
+  `topics_json` varchar(500) NOT NULL DEFAULT '["Health","Finance","Politics","Tech"]',
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Performance index for fast user analytics queries
+CREATE INDEX IF NOT EXISTS `idx_vh_user_created` ON `verification_history` (`user_id`, `created_at`);
+
 COMMIT;

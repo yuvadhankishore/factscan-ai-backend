@@ -238,8 +238,14 @@ foreach ($sources as $s) {
 // Track viral spread cluster (non-breaking, additive)
 require_once __DIR__ . "/../config/db.php";
 require_once __DIR__ . "/../config/viral_cluster_tracker.php";
+require_once __DIR__ . "/../config/profile_preferences_manager.php";
 $spreadMeta = ViralClusterTracker::trackClaimSpread($headline ?: $rawInput, $verdict, $conn ?? null);
 ViralClusterTracker::recordSpikeAlertIfNeeded($headline ?: $rawInput, $verdict, $spreadMeta["viralSpreadCount"] ?? 1, $conn ?? null);
+
+$userIdHeader = (int)($_SERVER["HTTP_X_USER_ID"] ?? 1);
+$userDomainTrust = ($type === "URL" || filter_var($rawInput, FILTER_VALIDATE_URL))
+    ? ProfilePreferencesManager::checkDomainStatus(max(1, $userIdHeader), $rawInput, $conn ?? null)
+    : "NEUTRAL";
 
 $responsePayload = [
     "success" => true,
@@ -262,6 +268,7 @@ $responsePayload = [
     "viralSpreadCount" => (int)($spreadMeta["viralSpreadCount"] ?? 1),
     "isViralHoax" => (bool)($spreadMeta["isViralHoax"] ?? false),
     "clusterWarning" => (string)($spreadMeta["clusterWarning"] ?? ""),
+    "userDomainTrust" => $userDomainTrust,
     // Full matching embedded result for Android Retrofit ContentApiService
     "result" => [
         "id" => time(),
@@ -277,6 +284,7 @@ $responsePayload = [
         "viralSpreadCount" => (int)($spreadMeta["viralSpreadCount"] ?? 1),
         "isViralHoax" => (bool)($spreadMeta["isViralHoax"] ?? false),
         "clusterWarning" => (string)($spreadMeta["clusterWarning"] ?? ""),
+        "userDomainTrust" => $userDomainTrust,
         "summary" => $summary,
         "whyThisResult" => $whyThisResult,
         "verdictJustification" => $summary,
