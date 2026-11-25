@@ -47,6 +47,7 @@ echo json_encode([
     "apiKeysConfigured" => count(AIKeysConfig::getAllGeminiKeys()),
     "cacheFileCount" => $cacheFiles,
     "cacheSizeKb" => round($cacheBytes / 1024, 1),
+    "memoryUsageMb" => round(memory_get_usage(true) / 1048576, 2),
     "latencyMs" => $latencyMs,
     "timestamp" => date("M d, Y • g:i A")
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
