@@ -261,4 +261,20 @@ class ViralClusterTracker {
             }
         }
     }
+
+    /**
+     * Deduplicates alert lists by normalized claim prefix to keep radar feeds clean.
+     */
+    public static function deduplicateAlerts(array $alerts): array {
+        $seen = [];
+        $unique = [];
+        foreach ($alerts as $alert) {
+            $key = mb_strtolower(preg_replace('/\s+/', '', mb_substr($alert['title'] ?? '', 0, 40)));
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $unique[] = $alert;
+            }
+        }
+        return $unique;
+    }
 }
