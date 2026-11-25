@@ -168,4 +168,7 @@ CREATE TABLE IF NOT EXISTS `user_radar_preferences` (
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Performance index for fast user analytics queries
+CREATE INDEX IF NOT EXISTS `idx_vh_user_created` ON `verification_history` (`user_id`, `created_at`);
+
 COMMIT;
