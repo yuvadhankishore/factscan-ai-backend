@@ -17,12 +17,13 @@ require_once __DIR__ . "/../config/db.php";
 require_once __DIR__ . "/../config/hoax_radar_feed.php";
 
 $category = trim($_GET["category"] ?? "All");
+$topicsParam = trim($_GET["topics"] ?? "");
 $limit = isset($_GET["limit"]) ? min(50, max(1, (int)$_GET["limit"])) : 20;
 $forceRefresh = !empty($_GET["refresh"]);
 
 $cacheDir = dirname(__DIR__) . "/storage/cache";
 if (!is_dir($cacheDir)) @mkdir($cacheDir, 0777, true);
-$cacheFile = $cacheDir . "/hoax_radar_" . md5(strtolower($category) . "_" . $limit) . ".json";
+$cacheFile = $cacheDir . "/hoax_radar_" . md5(strtolower($category . "_" . $topicsParam) . "_" . $limit) . ".json";
 
 if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < 600)) {
     $cached = @file_get_contents($cacheFile);
@@ -33,6 +34,15 @@ if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile)
 }
 
 $alerts = HoaxRadarFeed::getAlerts($conn ?? null, $category, $limit);
+
+if (!empty($topicsParam) && strtolower($category) === "all") {
+    $allowedTopics = array_map('strtolower', array_filter(array_map('trim', explode(',', $topicsParam))));
+    if (!empty($allowedTopics)) {
+        $alerts = array_values(array_filter($alerts, function($a) use ($allowedTopics) {
+            return in_array(strtolower($a["category"] ?? "general"), $allowedTopics, true);
+        }));
+    }
+}
 
 $payload = json_encode([
     "success" => true,
