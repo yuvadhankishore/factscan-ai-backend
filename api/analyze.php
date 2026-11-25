@@ -72,6 +72,8 @@ $postJson = json_decode($inputRaw, true) ?: [];
 $type = strtoupper(trim($_POST["type"] ?? $postJson["type"] ?? "TEXT"));
 $rawInput = trim($_POST["input"] ?? $_POST["text"] ?? $_POST["claim"] ?? $postJson["input"] ?? $postJson["text"] ?? $postJson["claim"] ?? "");
 $urlInput = trim($_POST["url"] ?? $postJson["url"] ?? "");
+$requestSource = trim($_POST["source"] ?? $postJson["source"] ?? "app");
+$isShareOverlay = ($requestSource === "share_overlay");
 
 if (empty($rawInput) && !empty($urlInput)) {
     $rawInput = $urlInput;
@@ -132,10 +134,20 @@ $cacheFile = $cacheDir . "/analysis_" . $cacheKey . ".json";
 if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtl)) {
     $cachedData = @json_decode(file_get_contents($cacheFile), true);
     if (!empty($cachedData) && isset($cachedData["verdict"])) {
+        require_once __DIR__ . "/../config/db.php";
+        require_once __DIR__ . "/../config/viral_cluster_tracker.php";
+        $spreadMeta = ViralClusterTracker::trackClaimSpread($cachedData["headline"] ?? $rawInput, $cachedData["verdict"], $conn ?? null);
+
         $cachedData["cached"] = true;
         $cachedData["timestamp"] = date("M d, Y • g:i A");
+        $cachedData["viralSpreadCount"] = (int)($spreadMeta["viralSpreadCount"] ?? 1);
+        $cachedData["isViralHoax"] = (bool)($spreadMeta["isViralHoax"] ?? false);
+        $cachedData["clusterWarning"] = (string)($spreadMeta["clusterWarning"] ?? "");
         if (isset($cachedData["result"])) {
             $cachedData["result"]["timestamp"] = date("M d, Y • g:i A");
+            $cachedData["result"]["viralSpreadCount"] = $cachedData["viralSpreadCount"];
+            $cachedData["result"]["isViralHoax"] = $cachedData["isViralHoax"];
+            $cachedData["result"]["clusterWarning"] = $cachedData["clusterWarning"];
         }
         logDebug("Cache HIT for key $cacheKey | Returning in <10ms");
         http_response_code(200);
@@ -223,6 +235,12 @@ foreach ($sources as $s) {
     }
 }
 
+// Track viral spread cluster (non-breaking, additive)
+require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../config/viral_cluster_tracker.php";
+$spreadMeta = ViralClusterTracker::trackClaimSpread($headline ?: $rawInput, $verdict, $conn ?? null);
+ViralClusterTracker::recordSpikeAlertIfNeeded($headline ?: $rawInput, $verdict, $spreadMeta["viralSpreadCount"] ?? 1, $conn ?? null);
+
 $responsePayload = [
     "success" => true,
     "verdict" => $verdict,
@@ -241,6 +259,9 @@ $responsePayload = [
     "freshness" => "REAL_TIME_2026",
     "temporalAnchor" => date("Y-m-d H:i:s T"),
     "timestamp" => date("M d, Y • g:i A"),
+    "viralSpreadCount" => (int)($spreadMeta["viralSpreadCount"] ?? 1),
+    "isViralHoax" => (bool)($spreadMeta["isViralHoax"] ?? false),
+    "clusterWarning" => (string)($spreadMeta["clusterWarning"] ?? ""),
     // Full matching embedded result for Android Retrofit ContentApiService
     "result" => [
         "id" => time(),
@@ -253,6 +274,9 @@ $responsePayload = [
         "freshness" => "REAL_TIME_2026",
         "temporalAnchor" => date("Y-m-d H:i:s T"),
         "timestamp" => date("M d, Y • g:i A"),
+        "viralSpreadCount" => (int)($spreadMeta["viralSpreadCount"] ?? 1),
+        "isViralHoax" => (bool)($spreadMeta["isViralHoax"] ?? false),
+        "clusterWarning" => (string)($spreadMeta["clusterWarning"] ?? ""),
         "summary" => $summary,
         "whyThisResult" => $whyThisResult,
         "verdictJustification" => $summary,
