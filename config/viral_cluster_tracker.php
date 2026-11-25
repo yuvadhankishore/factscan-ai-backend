@@ -252,6 +252,9 @@ class ViralClusterTracker {
                 if (!$chk->fetch()) {
                     $ins = $conn->prepare("INSERT INTO hoax_radar_alerts (title, summary, category, verdict, severity, spread_count) VALUES (:t, :s, 'General', :v, 'CRITICAL', :sc)");
                     $ins->execute([':t' => $title, ':s' => $summary, ':v' => $verdict, ':sc' => $spreadCount]);
+
+                    $pushIns = $conn->prepare("INSERT INTO push_notifications (title, body, verdict, confidence) VALUES (:t, :s, :v, 95)");
+                    $pushIns->execute([':t' => "🚨 " . $title, ':s' => $summary, ':v' => $verdict]);
                 }
             } catch (Throwable $e) {
                 // Non-fatal
