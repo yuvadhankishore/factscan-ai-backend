@@ -8,6 +8,7 @@
 class ProfilePreferencesManager {
 
     private static array $memoryWatchlistCache = [];
+    private static array $memoryRadarCache = [];
 
     public static function normalizeDomain(string $raw): string {
         $clean = trim(mb_strtolower($raw, 'UTF-8'));
@@ -135,6 +136,9 @@ class ProfilePreferencesManager {
     }
 
     public static function getRadarTopics(int $userId, $conn = null): array {
+        if (isset(self::$memoryRadarCache[$userId])) {
+            return self::$memoryRadarCache[$userId];
+        }
         $default = ["Health", "Finance", "Politics", "Tech"];
         if ($conn instanceof PDO) {
             try {
@@ -175,6 +179,7 @@ class ProfilePreferencesManager {
         $dir = dirname(__DIR__) . "/storage/cache";
         if (!is_dir($dir)) @mkdir($dir, 0777, true);
         @file_put_contents($dir . "/radar_prefs_{$userId}.json", $json);
+        self::$memoryRadarCache[$userId] = $clean;
         return $clean;
     }
 }
