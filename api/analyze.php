@@ -28,39 +28,11 @@ function logDebug(string $message) {
     @file_put_contents($debugLogFile, "[$time] " . $message . "\n", FILE_APPEND);
 }
 
-// 1. Robust Custom .env Loader (never rely on getenv() alone in XAMPP)
+require_once __DIR__ . "/../config/ai_keys.php";
+
+// 1. Robust Key Pool Loader
 function loadEnvKey(): string {
-    global $backendRoot;
-    $key = "";
-    
-    // Check root .env
-    $envPath = $backendRoot . "/.env";
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line) || $line[0] === '#') continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $val) = explode('=', $line, 2);
-                if (trim($name) === 'GEMINI_API_KEY') {
-                    $key = trim($val);
-                    break;
-                }
-            }
-        }
-    }
-    
-    if (empty($key)) {
-        $key = getenv("GEMINI_API_KEY") ?: "";
-    }
-    
-    // Clean key
-    $key = preg_replace('/^GEMINI_API_KEY\s*=\s*/i', '', $key);
-    $key = trim($key, " \t\n\r\0\x0B\"'");
-    if (strpos($key, "your_") !== false || strlen($key) < 20) {
-        return "";
-    }
-    return $key;
+    return AIKeysConfig::getGeminiKey();
 }
 
 $geminiApiKey = loadEnvKey();
@@ -311,10 +283,10 @@ exit();
 
 function callGeminiWithSearchGrounding(string $content, string $apiKey, string $hintTitle, string $hintPub): ?array {
     $modelsToTry = [
-        "gemini-3.8-flash",
         "gemini-3.5-flash-lite",
         "gemini-flash-latest",
-        "gemini-3.1-flash-lite"
+        "gemini-3.1-flash-lite",
+        "gemini-3.8-flash"
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);
@@ -456,8 +428,15 @@ PROMPT;
                 logDebug("Successfully verified via direct Gemini ($model)!");
                 return $parsed;
             }
-        } elseif ($httpCode === 404) {
-            continue; // model name not found, try next
+        } elseif ($httpCode === 429 || $httpCode === 403) {
+            $rotated = AIKeysConfig::rotateToNextKey();
+            if (!empty($rotated) && $rotated !== $apiKey) {
+                $apiKey = $rotated;
+                logDebug("Rotated to backup Gemini API key after HTTP $httpCode.");
+            }
+            continue;
+        } elseif ($httpCode === 404 || $httpCode === 503) {
+            continue; // model unavailable or busy, try next immediately
         }
     }
 
