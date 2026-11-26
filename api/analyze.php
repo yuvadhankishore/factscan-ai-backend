@@ -506,9 +506,12 @@ function parseGeminiSearchResponse(string $rawResponse): ?array {
 
     $sources = !empty($data["sources"]) && is_array($data["sources"]) ? $data["sources"] : $groundingSources;
 
+    $rawConf = isset($data["confidenceScore"]) ? (int)$data["confidenceScore"] : 92;
+    $clampedConf = max(1, min(100, $rawConf));
+
     return [
         "verdict" => $verdict,
-        "confidenceScore" => isset($data["confidenceScore"]) ? (int)$data["confidenceScore"] : 92,
+        "confidenceScore" => $clampedConf,
         "summary" => !empty($data["summary"]) ? $data["summary"] : "Fact verification complete.",
         "reasoning" => is_array($data["reasoning"] ?? null) ? $data["reasoning"] : [$data["reasoning"] ?? "Verified using primary sources."],
         "sources" => $sources,
