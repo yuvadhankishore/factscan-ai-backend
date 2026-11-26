@@ -25,3 +25,4 @@ echo json_encode([
     "clusters" => $clusters,
     "timestamp" => date("Y-m-d H:i:s T")
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+

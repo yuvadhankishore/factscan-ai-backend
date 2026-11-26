@@ -64,8 +64,12 @@ class GeminiConfig {
                 }
             } else {
                 error_log("Gemini API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
-                // If invalid key or quota, trying next model might not help, but if 404 (model not found), try next
-                if ($httpCode === 400 || $httpCode === 403) {
+                if ($httpCode === 429 || $httpCode === 403) {
+                    $rotated = AIKeysConfig::rotateToNextKey();
+                    if (!empty($rotated) && $rotated !== $key) {
+                        $key = $rotated;
+                    }
+                } elseif ($httpCode === 400) {
                     break;
                 }
             }
