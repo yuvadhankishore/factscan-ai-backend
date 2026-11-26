@@ -57,10 +57,13 @@ if (isset($_FILES["media"]) && $_FILES["media"]["error"] === UPLOAD_ERR_OK) {
     }
 }
 
-// Extract custom Gemini API Key
+// Extract custom Gemini API Key or fall back to server pool
 $apiKey = $data["apiKey"] ?? $data["api_key"] ?? null;
 if (empty($apiKey) && isset($_SERVER["HTTP_X_GEMINI_API_KEY"])) {
     $apiKey = trim($_SERVER["HTTP_X_GEMINI_API_KEY"]);
+}
+if (empty($apiKey) && class_exists("AIKeysConfig")) {
+    $apiKey = AIKeysConfig::getGeminiKey();
 }
 
 // URL extraction if format is URL
