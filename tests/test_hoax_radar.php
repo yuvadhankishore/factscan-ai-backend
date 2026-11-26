@@ -18,3 +18,4 @@ foreach ($alerts as $a) {
 }
 
 echo "PASSED: HoaxRadarFeed verified.\n";
+

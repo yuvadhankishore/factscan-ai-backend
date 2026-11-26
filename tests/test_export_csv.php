@@ -14,3 +14,4 @@ $row = testFormatCsvRow([1, 'Claim with "quotes", and commas', "FAKE", "2026-11-
 assert(strpos($row, '""quotes""') !== false, "Quotes must be RFC-4180 escaped");
 assert(substr($row, -2) === "\r\n", "CSV line endings must be CRLF");
 echo "PASSED: CSV formatting and escaping verified.\n";
+

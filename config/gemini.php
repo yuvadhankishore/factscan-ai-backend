@@ -48,7 +48,9 @@ class GeminiConfig {
                 "Content-Type: application/json"
             ]);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
             curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
             $response = curl_exec($ch);
@@ -64,8 +66,12 @@ class GeminiConfig {
                 }
             } else {
                 error_log("Gemini API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
-                // If invalid key or quota, trying next model might not help, but if 404 (model not found), try next
-                if ($httpCode === 400 || $httpCode === 403) {
+                if ($httpCode === 429 || $httpCode === 403) {
+                    $rotated = AIKeysConfig::rotateToNextKey();
+                    if (!empty($rotated) && $rotated !== $key) {
+                        $key = $rotated;
+                    }
+                } elseif ($httpCode === 400) {
                     break;
                 }
             }
@@ -137,7 +143,9 @@ class GeminiConfig {
                 "Content-Type: application/json"
             ]);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 18);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
             $response = curl_exec($ch);
@@ -153,7 +161,12 @@ class GeminiConfig {
                 }
             } else {
                 error_log("Gemini Multimodal API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
-                if ($httpCode === 400 || $httpCode === 403) {
+                if ($httpCode === 429 || $httpCode === 403) {
+                    $rotated = AIKeysConfig::rotateToNextKey();
+                    if (!empty($rotated) && $rotated !== $key) {
+                        $key = $rotated;
+                    }
+                } elseif ($httpCode === 400) {
                     break;
                 }
             }
@@ -223,7 +236,8 @@ class GeminiConfig {
                 "Content-Type: application/json"
             ]);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 12);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
             $response = curl_exec($ch);
@@ -239,7 +253,12 @@ class GeminiConfig {
                 }
             } else {
                 error_log("Gemini Chat API ($modelName) failed (HTTP $httpCode): " . ($error ?: $response));
-                if ($httpCode === 400 || $httpCode === 403) {
+                if ($httpCode === 429 || $httpCode === 403) {
+                    $rotated = AIKeysConfig::rotateToNextKey();
+                    if (!empty($rotated) && $rotated !== $key) {
+                        $key = $rotated;
+                    }
+                } elseif ($httpCode === 400) {
                     break;
                 }
             }

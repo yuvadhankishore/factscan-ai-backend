@@ -28,39 +28,11 @@ function logDebug(string $message) {
     @file_put_contents($debugLogFile, "[$time] " . $message . "\n", FILE_APPEND);
 }
 
-// 1. Robust Custom .env Loader (never rely on getenv() alone in XAMPP)
+require_once __DIR__ . "/../config/ai_keys.php";
+
+// 1. Robust Key Pool Loader
 function loadEnvKey(): string {
-    global $backendRoot;
-    $key = "";
-    
-    // Check root .env
-    $envPath = $backendRoot . "/.env";
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line) || $line[0] === '#') continue;
-            if (strpos($line, '=') !== false) {
-                list($name, $val) = explode('=', $line, 2);
-                if (trim($name) === 'GEMINI_API_KEY') {
-                    $key = trim($val);
-                    break;
-                }
-            }
-        }
-    }
-    
-    if (empty($key)) {
-        $key = getenv("GEMINI_API_KEY") ?: "";
-    }
-    
-    // Clean key
-    $key = preg_replace('/^GEMINI_API_KEY\s*=\s*/i', '', $key);
-    $key = trim($key, " \t\n\r\0\x0B\"'");
-    if (strpos($key, "your_") !== false || strlen($key) < 20) {
-        return "";
-    }
-    return $key;
+    return AIKeysConfig::getGeminiKey();
 }
 
 $geminiApiKey = loadEnvKey();
@@ -311,10 +283,10 @@ exit();
 
 function callGeminiWithSearchGrounding(string $content, string $apiKey, string $hintTitle, string $hintPub): ?array {
     $modelsToTry = [
-        "gemini-3.8-flash",
         "gemini-3.5-flash-lite",
         "gemini-flash-latest",
-        "gemini-3.1-flash-lite"
+        "gemini-3.1-flash-lite",
+        "gemini-3.8-flash"
     ];
 
     $cleanContent = mb_substr($content, 0, 7000);
@@ -325,6 +297,11 @@ You are FactScan AI, a real-time investigative fact-checking intelligence agent.
 TEMPORAL ANCHOR: Today is {$currentDateStr}. You are evaluating this claim in real-time in year 2026.
 Verify the factual accuracy against the latest 2026 news updates, official sovereign registries, and accredited news wire reports (Reuters, AP, BBC, AFP, Bloomberg, ANI, Press Trust of India).
 Do NOT treat modern 2026 developments as future events. If a claim involves recent breaking news, evaluate the latest public record as of {$currentDateStr}.
+CALIBRATION:
+- REAL: Confirmed by accredited wire reporting, peer-reviewed consensus, or official institutional records.
+- FAKE: Demonstrably false, fabricated, pseudoscientific (e.g. miracle cures), or contradicted by official records.
+- MISLEADING: Mixes a real fact with distorted context, exaggerated numbers, or recycled old media.
+- UNVERIFIED: Insufficient credible public evidence to confirm or refute right now.
 NEVER return canned or outdated static messages. Every verdict and reasoning bullet must specifically address the named entities, dates, locations, and contemporary context of the claim.
 
 You MUST return ONLY a raw JSON object (do NOT wrap in ```json or markdown code fences):
@@ -456,8 +433,15 @@ PROMPT;
                 logDebug("Successfully verified via direct Gemini ($model)!");
                 return $parsed;
             }
-        } elseif ($httpCode === 404) {
-            continue; // model name not found, try next
+        } elseif ($httpCode === 429 || $httpCode === 403) {
+            $rotated = AIKeysConfig::rotateToNextKey();
+            if (!empty($rotated) && $rotated !== $apiKey) {
+                $apiKey = $rotated;
+                logDebug("Rotated to backup Gemini API key after HTTP $httpCode.");
+            }
+            continue;
+        } elseif ($httpCode === 404 || $httpCode === 503) {
+            continue; // model unavailable or busy, try next immediately
         }
     }
 
@@ -493,12 +477,16 @@ function parseGeminiSearchResponse(string $rawResponse): ?array {
         }
     }
 
+    // Remove trailing commas before closing braces/brackets if model emitted slightly malformed JSON
+    $clean = preg_replace('/,\s*([\}\]])/', '$1', $clean);
     $data = json_decode($clean, true);
     if (!is_array($data) || empty($data["verdict"])) {
         return null;
     }
 
     $verdict = strtoupper(trim($data["verdict"]));
+    if ($verdict === "FALSE" || $verdict === "HOAX") $verdict = "FAKE";
+    if ($verdict === "TRUE" || $verdict === "AUTHENTIC") $verdict = "REAL";
     if (!in_array($verdict, ["REAL", "FAKE", "MISLEADING", "UNVERIFIED"])) {
         $verdict = "UNVERIFIED";
     }
@@ -518,9 +506,12 @@ function parseGeminiSearchResponse(string $rawResponse): ?array {
 
     $sources = !empty($data["sources"]) && is_array($data["sources"]) ? $data["sources"] : $groundingSources;
 
+    $rawConf = isset($data["confidenceScore"]) ? (int)$data["confidenceScore"] : 92;
+    $clampedConf = max(1, min(100, $rawConf));
+
     return [
         "verdict" => $verdict,
-        "confidenceScore" => isset($data["confidenceScore"]) ? (int)$data["confidenceScore"] : 92,
+        "confidenceScore" => $clampedConf,
         "summary" => !empty($data["summary"]) ? $data["summary"] : "Fact verification complete.",
         "reasoning" => is_array($data["reasoning"] ?? null) ? $data["reasoning"] : [$data["reasoning"] ?? "Verified using primary sources."],
         "sources" => $sources,

@@ -34,3 +34,4 @@ echo json_encode([
     "freedKb" => round($freedBytes / 1024, 1),
     "message" => "Cleared $cleared temporary cache files."
 ]);
+

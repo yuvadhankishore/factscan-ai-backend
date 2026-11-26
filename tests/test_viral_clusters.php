@@ -27,3 +27,4 @@ echo "Run 2 Spread Count: " . $res2["viralSpreadCount"] . " | Warning: " . $res2
 
 assert($res2["viralSpreadCount"] >= 2, "Similar claim should increment cluster spread count");
 echo "PASSED: ViralClusterTracker verified.\n";
+
