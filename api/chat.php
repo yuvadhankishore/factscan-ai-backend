@@ -194,10 +194,20 @@ if ($isLikelyClaim && $claimEval) {
     $confStr = $claimEval["confidence"] ?? 85;
     $signalsStr = implode(", ", $claimEval["warningSignals"] ?? []);
     
-    $systemInstruction .= "\n\n[Background Intelligence from FactScan Machine Learning Model]:\n"
+    $systemInstruction .= "\n\n[Temporal Anchor]: Today is " . date("l, F j, Y") . " (2026)."
+        . "\n[Background Intelligence from FactScan Machine Learning Model]:\n"
         . "- Initial ML Classifier Verdict: $verdictStr ($confStr% confidence)\n"
         . "- Detected Risk Signals: " . ($signalsStr ?: "Standard journalistic or online pattern") . "\n"
         . "Use this background data to assist the user informatively and respectfully.";
+
+    require_once __DIR__ . "/../config/live_news_fetcher.php";
+    $liveDispatches = LiveNewsFetcher::fetchLiveWireNews($userMessage, 3);
+    if (!empty($liveDispatches)) {
+        $systemInstruction .= "\n\n[Live 2026 News Wire Dispatches]:\n";
+        foreach ($liveDispatches as $ld) {
+            $systemInstruction .= "- [" . $ld["publisher"] . "] " . $ld["title"] . " (" . $ld["publishedAt"] . ")\n";
+        }
+    }
 }
 
 // 4. Construct Multi-Turn Messages
