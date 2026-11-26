@@ -297,6 +297,11 @@ You are FactScan AI, a real-time investigative fact-checking intelligence agent.
 TEMPORAL ANCHOR: Today is {$currentDateStr}. You are evaluating this claim in real-time in year 2026.
 Verify the factual accuracy against the latest 2026 news updates, official sovereign registries, and accredited news wire reports (Reuters, AP, BBC, AFP, Bloomberg, ANI, Press Trust of India).
 Do NOT treat modern 2026 developments as future events. If a claim involves recent breaking news, evaluate the latest public record as of {$currentDateStr}.
+CALIBRATION:
+- REAL: Confirmed by accredited wire reporting, peer-reviewed consensus, or official institutional records.
+- FAKE: Demonstrably false, fabricated, pseudoscientific (e.g. miracle cures), or contradicted by official records.
+- MISLEADING: Mixes a real fact with distorted context, exaggerated numbers, or recycled old media.
+- UNVERIFIED: Insufficient credible public evidence to confirm or refute right now.
 NEVER return canned or outdated static messages. Every verdict and reasoning bullet must specifically address the named entities, dates, locations, and contemporary context of the claim.
 
 You MUST return ONLY a raw JSON object (do NOT wrap in ```json or markdown code fences):
@@ -472,12 +477,16 @@ function parseGeminiSearchResponse(string $rawResponse): ?array {
         }
     }
 
+    // Remove trailing commas before closing braces/brackets if model emitted slightly malformed JSON
+    $clean = preg_replace('/,\s*([\}\]])/', '$1', $clean);
     $data = json_decode($clean, true);
     if (!is_array($data) || empty($data["verdict"])) {
         return null;
     }
 
     $verdict = strtoupper(trim($data["verdict"]));
+    if ($verdict === "FALSE" || $verdict === "HOAX") $verdict = "FAKE";
+    if ($verdict === "TRUE" || $verdict === "AUTHENTIC") $verdict = "REAL";
     if (!in_array($verdict, ["REAL", "FAKE", "MISLEADING", "UNVERIFIED"])) {
         $verdict = "UNVERIFIED";
     }
