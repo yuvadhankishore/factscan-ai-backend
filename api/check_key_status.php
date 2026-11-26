@@ -4,11 +4,11 @@
  * Endpoint: GET /api/check_key_status.php
  */
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Content-Type: application/json; charset=UTF-8");
+@header("Access-Control-Allow-Origin: *");
+@header("Access-Control-Allow-Methods: GET, OPTIONS");
+@header("Content-Type: application/json; charset=UTF-8");
 
-if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "OPTIONS") {
     http_response_code(200);
     exit();
 }
@@ -57,6 +57,7 @@ echo json_encode([
     "timestamp" => date("Y-m-d H:i:s T"),
     "keys_configured" => count($allKeys),
     "primary_key" => !empty($currentKey) ? substr($currentKey, 0, 6) . "..." . substr($currentKey, -4) : "NONE",
+    "active_models" => GeminiConfig::MODELS,
     "details" => $keyStatus,
     "how_to_update" => "Add or replace GEMINI_API_KEY in factscanai_backend/.env file. Multiple keys can be separated by commas."
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
